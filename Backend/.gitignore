@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+migrations/
+venv
+.env
+answer_sheets/
