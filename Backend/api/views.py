@@ -73,6 +73,10 @@ def login(request):
             if not bcrypt.checkpw(pin.encode('utf-8'), stored_hashed_pin):
                 return JsonResponse({'error': 'Invalid PIN'}, status=401)
 
+            # ⛔ Block login if not paired
+            if not user.get('isPaired') or not user.get('pairedWith'):
+                return JsonResponse({'error': 'You must pair with your partner before using chat.'}, status=403)
+
             payload = {
                 'email': email,
                 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
@@ -91,6 +95,7 @@ def login(request):
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
 
 @csrf_exempt
@@ -227,3 +232,56 @@ def get_messages(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only GET allowed'}, status=405)
+
+@csrf_exempt
+def get_user(request):
+    if request.method == 'GET':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            user = users_collection.find_one({'email': user_email})
+            if not user:
+                return JsonResponse({'error': 'User not found'}, status=404)
+
+            # Get partner details if paired
+            partner_name = None
+            if user.get('pairedWith'):
+                partner = users_collection.find_one({'email': user.get('pairedWith')})
+                if partner:
+                    partner_name = partner.get('name')
+
+            user_data = {
+                '_id': str(user['_id']),
+                'name': user['name'],
+                'email': user['email'],
+                'isPaired': user.get('isPaired', False),
+                'partnerCode': user.get('partnerCode'),
+                'pairedWith': user.get('pairedWith'),
+                'partnerName': partner_name
+            }
+
+            return JsonResponse(user_data, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only GET method allowed'}, status=405)
+
+@csrf_exempt
+def logout(request):
+    if request.method == 'POST':
+        response = JsonResponse({'message': 'Logged out successfully'})
+        response.delete_cookie('loveconnect')
+        return response
+    
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)

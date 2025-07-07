@@ -8,6 +8,8 @@ interface User {
   partnerId?: string;
   partnerName?: string;
   partnerEmail?: string;
+  isPaired?: boolean;
+  partnerCode?: string;
 }
 
 interface AuthContextType {
@@ -34,60 +36,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check if user is logged in on app start
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-      setIsAuthenticated(true);
-    }
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          const user: User = {
+            id: userData._id || userData.id,
+            name: userData.name,
+            email: userData.email,
+            isPaired: userData.isPaired,
+            partnerCode: userData.partnerCode,
+            partnerName: userData.partnerName,
+            partnerEmail: userData.pairedWith
+          };
+          
+          setUser(user);
+          setIsAuthenticated(true);
+          localStorage.setItem('user', JSON.stringify(user));
+        } else {
+          // Clear any stale data
+          localStorage.removeItem('user');
+        }
+      } catch {
+        // If check fails, clear any stale data
+        localStorage.removeItem('user');
+      }
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email: string, pin: string): Promise<boolean> => {
-    // Mock login - replace with actual API call
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('http://localhost:8000/loveconnect/api/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, pin })
+      });
+
+      if (response.ok) {
+        // Login successful - fetch user data
+        const userResponse = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
+          credentials: 'include'
+        });
+        
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          const user: User = {
+            id: userData._id || userData.id,
+            name: userData.name,
+            email: userData.email,
+            isPaired: userData.isPaired,
+            partnerCode: userData.partnerCode,
+            partnerName: userData.partnerName,
+            partnerEmail: userData.pairedWith
+          };
+          
+          setUser(user);
+          setIsAuthenticated(true);
+          localStorage.setItem('user', JSON.stringify(user));
+          return true;
+        }
+      }
       
-      const mockUser: User = {
-        id: '1',
-        name: 'Alex Johnson',
-        email: email,
-        avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=1',
-        partnerId: '2',
-        partnerName: 'Jordan Smith',
-        partnerEmail: 'jordan@example.com'
-      };
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      return true;
-    } catch (error) {
+      return false;
+    } catch {
       return false;
     }
   };
 
   const signup = async (name: string, email: string, pin: string): Promise<boolean> => {
-    // Mock signup - replace with actual API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockUser: User = {
-        id: '1',
-        name: name,
-        email: email,
-        avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=1'
-      };
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      return true;
-    } catch (error) {
+      const response = await fetch('http://localhost:8000/loveconnect/api/signup/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name, email, pin })
+      });
+
+      if (response.ok) {
+        return true;
+      }
+      return false;
+    } catch {
       return false;
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call backend logout to clear cookies
+      await fetch('http://localhost:8000/loveconnect/api/logout/', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch {
+      // Continue with logout even if backend call fails
+    }
+    
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('user');

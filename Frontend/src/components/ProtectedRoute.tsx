@@ -7,10 +7,15 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check if user is paired (required for dashboard access)
+  if (user && !user.isPaired) {
+    return <Navigate to="/pairing" state={{ email: user.email }} replace />;
   }
 
   return <>{children}</>;
