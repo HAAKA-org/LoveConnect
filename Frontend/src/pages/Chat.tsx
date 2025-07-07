@@ -132,7 +132,7 @@ const Chat: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-pink-50">
       {/* Header */}
-      <div className="bg-white border-b border-pink-200 p-4">
+      <div className="bg-white fixed border-b border-pink-200 p-4 w-full">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-pink-600 rounded-full flex items-center justify-center">
@@ -185,7 +185,7 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Message Input */}
-      <div className="bg-white border-t border-pink-200 p-4">
+      <div className="bg-white border-t border-pink-200 p-4 fixed bottom-14 w-full">
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
           <div className="flex space-x-2">
             <label htmlFor="image-upload" className="p-2 text-gray-500 hover:text-pink-600 cursor-pointer">
