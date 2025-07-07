@@ -147,3 +147,83 @@ def pair_partner(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def send_message(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                sender_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            data = json.loads(request.body)
+            msg_type = data.get('type')
+            content = data.get('content')
+
+            if not all([msg_type, content]):
+                return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+            # Look up user to get partner info
+            sender = users_collection.find_one({'email': sender_email})
+            if not sender:
+                return JsonResponse({'error': 'User not found'}, status=404)
+            if not sender.get('isPaired') or not sender.get('pairedWith'):
+                return JsonResponse({'error': 'User not paired'}, status=403)
+
+            message = {
+                'pairCode': sender['partnerCode'],
+                'senderEmail': sender_email,
+                'receiverEmail': sender['pairedWith'],
+                'type': msg_type,
+                'content': content,
+                'timestamp': datetime.datetime.utcnow().isoformat()
+            }
+
+            db['messages'].insert_one(message)
+            return JsonResponse({'message': 'Message sent'}, status=201)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def get_messages(request):
+    if request.method == 'GET':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                sender_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            user = users_collection.find_one({'email': sender_email})
+            if not user or not user.get('partnerCode'):
+                return JsonResponse({'error': 'User not paired'}, status=403)
+
+            pair_code = user['partnerCode']
+
+            messages = list(db['messages'].find({'pairCode': pair_code}).sort('timestamp', 1))
+            for msg in messages:
+                msg['_id'] = str(msg['_id'])  # convert ObjectId to string
+
+            return JsonResponse({'messages': messages}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only GET allowed'}, status=405)

@@ -1,14 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Image, Mic, Smile, Plus } from 'lucide-react';
+import { Send, Image, Mic, Smile } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useChat } from '../context/ChatContext';
 
 const Chat: React.FC = () => {
   const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<Array<{
+    id: string;
+    senderEmail: string;
+    content: string;
+    type: string;
+    timestamp: Date;
+    imageUrl?: string;
+  }>>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const { messages, sendMessage } = useChat();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -18,10 +25,89 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Fetch messages on component mount
+  useEffect(() => {
+    const fetchMessages = async () => {
+  try {
+    const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
+      credentials: 'include'
+    });
+    const data = await res.json();
+    if (res.ok && data.messages) {
+      const mapped = data.messages.map((msg: any) => ({
+        id: msg._id,
+        senderEmail: msg.senderEmail,
+        content: msg.content,
+        type: msg.type,
+        timestamp: new Date(msg.timestamp),
+        imageUrl: msg.type === 'image' ? msg.content : null
+      }));
+      setMessages(mapped);
+    }
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+  }
+};
+
+    if (user?.partnerId) {
+      fetchMessages();
+    }
+  }, [user?.partnerId]);
+
+  const fetchMessages = async () => {
+  try {
+    const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
+      credentials: 'include'
+    });
+    const data = await res.json();
+    if (res.ok && data.messages) {
+      const mapped = data.messages.map((msg: any) => ({
+        id: msg._id,
+        senderEmail: msg.senderEmail,
+        content: msg.content,
+        type: msg.type,
+        timestamp: new Date(msg.timestamp),
+        imageUrl: msg.type === 'image' ? msg.content : null
+      }));
+      setMessages(mapped);
+    }
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+  }
+};
+
+  const sendMessageToBackend = async (content: string, type: string = 'text', imageUrl?: string) => {
+    try {
+      setIsLoading(true);
+
+      const response = await fetch('http://localhost:8000/loveconnect/api/send-message/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure JWT cookie is included
+        body: JSON.stringify({
+          type: type,
+          content: type === 'image' ? imageUrl : content
+        })
+      });
+
+      if (response.ok) {
+        await fetchMessages(); // Refresh after send
+      } else {
+        const err = await response.json();
+        console.error('Failed to send message:', err.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim()) {
-      sendMessage(message);
+    if (message.trim() && !isLoading) {
+      sendMessageToBackend(message);
       setMessage('');
     }
   };
@@ -31,7 +117,7 @@ const Chat: React.FC = () => {
     if (file) {
       // In a real app, you'd upload to a server and get back a URL
       const imageUrl = URL.createObjectURL(file);
-      sendMessage(imageUrl, 'image');
+      sendMessageToBackend('', 'image', imageUrl);
     }
   };
 
@@ -69,14 +155,13 @@ const Chat: React.FC = () => {
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${msg.senderEmail === user?.email ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${
-                msg.senderId === user?.id
+              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${msg.senderEmail === user?.email
                   ? 'bg-pink-600 text-white'
                   : 'bg-white text-gray-800 border border-pink-200'
-              }`}
+                }`}
             >
               {msg.type === 'image' ? (
                 <div className="space-y-2">
@@ -113,13 +198,12 @@ const Chat: React.FC = () => {
               onChange={handleImageUpload}
               className="hidden"
             />
-            
+
             <button
               type="button"
               onClick={() => setIsRecording(!isRecording)}
-              className={`p-2 rounded-full ${
-                isRecording ? 'text-red-600 bg-red-100' : 'text-gray-500 hover:text-pink-600'
-              }`}
+              className={`p-2 rounded-full ${isRecording ? 'text-red-600 bg-red-100' : 'text-gray-500 hover:text-pink-600'
+                }`}
             >
               <Mic size={20} />
             </button>

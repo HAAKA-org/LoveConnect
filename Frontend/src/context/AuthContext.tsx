@@ -7,6 +7,7 @@ interface User {
   avatar?: string;
   partnerId?: string;
   partnerName?: string;
+  partnerEmail?: string;
 }
 
 interface AuthContextType {
@@ -52,7 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: email,
         avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=1',
         partnerId: '2',
-        partnerName: 'Jordan Smith'
+        partnerName: 'Jordan Smith',
+        partnerEmail: 'jordan@example.com'
       };
       
       setUser(mockUser);
