@@ -9,9 +9,24 @@ const Login: React.FC = () => {
   const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const { login } = useAuth();
+
   const navigate = useNavigate();
+
+  const login = async (email: string, pin: string) => {
+    const response = await fetch('http://localhost:8000/loveconnect/api/login/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, pin }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      return true;
+    } else {
+      throw new Error(data.error || 'Login failed');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,12 +36,15 @@ const Login: React.FC = () => {
     try {
       const success = await login(email, pin);
       if (success) {
+        // Navigate to dashboard after successful login
         navigate('/dashboard');
-      } else {
-        setError('Invalid email or PIN. Please try again.');
       }
-    } catch (error) {
-      setError('Something went wrong. Please try again.');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message || 'Something went wrong. Please try again.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -126,6 +144,7 @@ const Login: React.FC = () => {
             </Link>
           </p>
         </div>
+
       </div>
     </div>
   );

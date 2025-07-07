@@ -15,7 +15,22 @@ const Signup: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { signup } = useAuth();
+  const signup = async (name: string, email: string, pin: string) => {
+  const response = await fetch('http://localhost:8000/loveconnect/api/signup/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',  // required to accept/set cookies
+    body: JSON.stringify({ name, email, pin }),
+  });
+
+  const data = await response.json();
+  if (response.ok) {
+    return true;
+  } else {
+    throw new Error(data.error || 'Signup failed');
+  }
+};
+
   const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

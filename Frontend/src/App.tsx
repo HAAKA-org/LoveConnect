@@ -26,9 +26,9 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/dashboard" element={
-                <ProtectedRoute>
+                
                   <DashboardLayout />
-                </ProtectedRoute>
+                
               }>
                 <Route index element={<Navigate to="/dashboard/chat" replace />} />
                 <Route path="chat" element={<Chat />} />
