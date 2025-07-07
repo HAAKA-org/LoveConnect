@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -13,19 +12,27 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const login = async (email: string, pin: string) => {
-    const response = await fetch('http://localhost:8000/loveconnect/api/login/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, pin }),
-    });
+    const res = await fetch('http://localhost:8000/loveconnect/api/login/',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, pin })
+      });
 
-    const data = await response.json();
-    if (response.ok) {
-      return true;
-    } else {
-      throw new Error(data.error || 'Login failed');
+    const data = await res.json();
+
+    if (res.status === 403) {
+      // User needs to pair with partner
+      navigate('/pairing', { state: { email } });
+      return false;
     }
+
+    if (res.ok) {
+      return true;
+    }
+
+    throw new Error(data.error || 'Login failed');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

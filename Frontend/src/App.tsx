@@ -1,10 +1,10 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Pairing from './pages/Pairing';
 import DashboardLayout from './layouts/DashboardLayout';
 import Chat from './pages/Chat';
 import Gallery from './pages/Gallery';
@@ -25,6 +25,7 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/pairing" element={<Pairing />} />
               <Route path="/dashboard" element={
                 
                   <DashboardLayout />

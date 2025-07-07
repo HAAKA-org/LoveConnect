@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { Heart, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Signup: React.FC = () => {
@@ -15,23 +14,23 @@ const Signup: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const signup = async (name: string, email: string, pin: string) => {
-  const response = await fetch('http://localhost:8000/loveconnect/api/signup/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',  // required to accept/set cookies
-    body: JSON.stringify({ name, email, pin }),
-  });
-
-  const data = await response.json();
-  if (response.ok) {
-    return true;
-  } else {
-    throw new Error(data.error || 'Signup failed');
-  }
-};
-
   const navigate = useNavigate();
+
+  const signup = async (name: string, email: string, pin: string) => {
+    const response = await fetch('http://localhost:8000/loveconnect/api/signup/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, email, pin }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      return true;
+    } else {
+      throw new Error(data.error || 'Signup failed');
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -66,12 +65,16 @@ const Signup: React.FC = () => {
     try {
       const success = await signup(formData.name, formData.email, formData.pin);
       if (success) {
-        navigate('/dashboard');
+        navigate('/login');
       } else {
         setError('Failed to create account. Please try again.');
       }
-    } catch (error) {
-      setError('Something went wrong. Please try again.');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
