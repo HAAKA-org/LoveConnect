@@ -16,6 +16,8 @@ const Chat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const socketRef = useRef<WebSocket | null>(null);
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,32 +29,41 @@ const Chat: React.FC = () => {
 
   // Fetch messages on component mount
   useEffect(() => {
-    const fetchMessages = async () => {
-  try {
-    const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
-      credentials: 'include'
-    });
-    const data = await res.json();
-    if (res.ok && data.messages) {
-      const mapped = data.messages.map((msg: any) => ({
-        id: msg._id,
-        senderEmail: msg.senderEmail,
-        content: msg.content,
-        type: msg.type,
-        timestamp: new Date(msg.timestamp),
-        imageUrl: msg.type === 'image' ? msg.content : null
-      }));
-      setMessages(mapped);
-    }
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-  }
-};
+    if (!user?.partnerCode) return;
 
-    if (user?.partnerId) {
-      fetchMessages();
-    }
-  }, [user?.partnerId]);
+    const token = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('loveconnect'))?.split('=')[1];
+
+    const socket = new WebSocket(`ws://localhost:8000/ws/chat/${user.partnerCode}/`);
+    socketRef.current = socket;
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        senderEmail: data.senderEmail,
+        content: data.content,
+        type: data.type,
+        timestamp: new Date(data.timestamp),
+        imageUrl: data.type === 'image' ? data.content : null
+      }]);
+    };
+
+    socket.onclose = () => {
+      console.warn("WebSocket closed");
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [user?.partnerCode]);
+
+  // useEffect(() => {
+  //   if (user?.partnerId) {
+  //     fetchMessages();
+  //   }
+  // }, [user?.partnerId]);
 
   const fetchMessages = async () => {
   try {
@@ -106,11 +117,17 @@ const Chat: React.FC = () => {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() && !isLoading) {
-      sendMessageToBackend(message);
-      setMessage('');
-    }
+    if (!message.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+
+    const payload = {
+      content: message,
+      type: 'text'
+    };
+
+    socketRef.current.send(JSON.stringify(payload));
+    setMessage('');
   };
+
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
