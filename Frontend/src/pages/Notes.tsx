@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, Heart, Save, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit3, Trash2, Heart, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Note {
   id: string;
@@ -12,11 +12,37 @@ interface Note {
   color: string;
 }
 
+interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 const Notes: React.FC = () => {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingNote, setEditingNote] = useState<Partial<Note>>({});
+  
+  // Toast notification state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Function to show toast messages
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now().toString();
+    const newToast = { id, message, type };
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 4000);
+  };
+
+  // Function to manually remove toast
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   const colors = [
     'bg-pink-100', 'bg-purple-100', 'bg-blue-100', 'bg-green-100',
@@ -24,73 +50,93 @@ const Notes: React.FC = () => {
   ];
 
   // Mock notes data
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: '1',
-      title: 'Our Anniversary Plans',
-      content: 'Ideas for our 2nd anniversary:\n\n• Sunset picnic at the beach\n• Visit the place where we first met\n• Cook dinner together\n• Write letters to each other\n• Take a photo booth session',
-      createdBy: 'Jordan',
-      createdAt: new Date('2025-01-15'),
-      updatedAt: new Date('2025-01-15'),
-      isFavorite: true,
-      color: 'bg-pink-100'
-    },
-    {
-      id: '2',
-      title: 'Weekend Getaway Ideas',
-      content: 'Places we want to visit:\n\n• Mountain cabin retreat\n• Beach house rental\n• City break in San Francisco\n• Camping under the stars\n• Wine tasting in Napa Valley',
-      createdBy: 'Alex',
-      createdAt: new Date('2025-01-14'),
-      updatedAt: new Date('2025-01-14'),
-      isFavorite: false,
-      color: 'bg-blue-100'
-    },
-    {
-      id: '3',
-      title: 'Date Night Ideas',
-      content: 'Fun things to do together:\n\n• Cooking class\n• Mini golf\n• Board game café\n• Art museum visit\n• Bookstore browsing\n• Farmers market shopping',
-      createdBy: 'Jordan',
-      createdAt: new Date('2025-01-13'),
-      updatedAt: new Date('2025-01-13'),
-      isFavorite: true,
-      color: 'bg-green-100'
-    },
-    {
-      id: '4',
-      title: 'Things We Love About Each Other',
-      content: 'Random love notes:\n\n• Your laugh brightens my day\n• The way you hum while cooking\n• How you always remember small details\n• Your kindness to everyone\n• The way you support my dreams',
-      createdBy: 'Alex',
-      createdAt: new Date('2025-01-12'),
-      updatedAt: new Date('2025-01-12'),
-      isFavorite: true,
-      color: 'bg-purple-100'
-    }
-  ]);
+  const [notes, setNotes] = useState<Note[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/loveconnect/api/notes/', {
+      credentials: 'include',
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.notes) {
+          const parsedNotes = data.notes.map((note: any) => ({
+            id: note._id,
+            title: note.title,
+            content: note.content,
+            createdBy: note.createdBy,
+            createdAt: new Date(note.createdAt),
+            updatedAt: new Date(note.updatedAt),
+            isFavorite: note.isFavorite,
+            color: note.color,
+          }));
+          setNotes(parsedNotes);
+        }
+      })
+      .catch(() => {
+        showToast('Failed to load notes. Please refresh the page', 'error');
+      });
+  }, []);
 
   const filteredNotes = notes.filter(note =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     note.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateNote = () => {
-    const newNote: Note = {
-      id: Date.now().toString(),
+  const handleCreateNote = async () => {
+    const newNoteData = {
       title: 'New Note',
       content: 'Start writing...',
-      createdBy: 'You',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isFavorite: false,
-      color: colors[Math.floor(Math.random() * colors.length)]
+      color: colors[Math.floor(Math.random() * colors.length)],
+      isFavorite: false
     };
-    setNotes(prev => [newNote, ...prev]);
-    setSelectedNote(newNote);
-    setIsEditing(true);
-    setEditingNote(newNote);
+
+    showToast('Creating a new note for your thoughts... 💕', 'info');
+
+    const res = await fetch('http://localhost:8000/loveconnect/api/notes/create/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newNoteData),
+      credentials: 'include',
+    });
+
+    const created = await res.json();
+    if (created && created._id) {
+      const newNote: Note = {
+        id: created._id,
+        title: created.title,
+        content: created.content,
+        createdBy: created.createdBy,
+        createdAt: new Date(created.createdAt),
+        updatedAt: new Date(created.updatedAt),
+        isFavorite: created.isFavorite,
+        color: created.color,
+      };
+      setNotes(prev => [newNote, ...prev]);
+      setSelectedNote(newNote);
+      setIsEditing(true);
+      setEditingNote(newNote);
+      showToast('Note created successfully! Start writing your heart out 💖✨', 'success');
+    } else {
+      showToast('Failed to create note. Please try again', 'error');
+    }
   };
 
-  const handleSaveNote = () => {
-    if (editingNote.id) {
+const handleSaveNote = async () => {
+  if (editingNote.id) {
+    showToast('Saving your precious thoughts... 💭', 'info');
+    
+    const res = await fetch(`http://localhost:8000/loveconnect/api/notes/${editingNote.id}/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: editingNote.title,
+        content: editingNote.content,
+        color: editingNote.color,
+      }),
+      credentials: 'include',
+    });
+
+    if (res.ok) {
       setNotes(prev =>
         prev.map(note =>
           note.id === editingNote.id
@@ -98,26 +144,45 @@ const Notes: React.FC = () => {
             : note
         )
       );
-      setSelectedNote({ ...selectedNote!, ...editingNote });
+      setSelectedNote({ ...selectedNote!, ...editingNote, updatedAt: new Date() });
+      setIsEditing(false);
+      setEditingNote({});
+      showToast('Note saved successfully! Your memories are safe 💕', 'success');
+    } else {
+      showToast('Failed to save note. Please try again', 'error');
     }
-    setIsEditing(false);
-    setEditingNote({});
-  };
+  }
+};
 
-  const handleDeleteNote = (id: string) => {
+const handleDeleteNote = async (id: string) => {
+  showToast('Removing note...', 'info');
+  
+  const res = await fetch(`http://localhost:8000/loveconnect/api/notes/${id}/delete/`, { method: 'DELETE', credentials: 'include' });
+  if (res.ok) {
     setNotes(prev => prev.filter(note => note.id !== id));
     if (selectedNote?.id === id) {
       setSelectedNote(null);
     }
-  };
+    showToast('Note deleted successfully', 'success');
+  } else {
+    showToast('Failed to delete note. Please try again', 'error');
+  }
+};
 
-  const toggleFavorite = (id: string) => {
+const toggleFavorite = async (id: string) => {
+  const res = await fetch(`http://localhost:8000/loveconnect/api/notes/${id}/favorite/`, { method: 'PATCH', credentials: 'include' });
+  const data = await res.json();
+  if (res.ok && data.isFavorite !== undefined) {
     setNotes(prev =>
       prev.map(note =>
-        note.id === id ? { ...note, isFavorite: !note.isFavorite } : note
+        note.id === id ? { ...note, isFavorite: data.isFavorite } : note
       )
     );
-  };
+    showToast(data.isFavorite ? 'Added to favorites! 💖' : 'Removed from favorites', data.isFavorite ? 'success' : 'info');
+  } else {
+    showToast('Failed to update favorite status', 'error');
+  }
+};
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
@@ -129,9 +194,56 @@ const Notes: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-pink-50 flex">
-      {/* Sidebar */}
-      <div className="w-full md:w-1/3 bg-white border-r border-pink-200 flex flex-col">
+    <div className="h-screen bg-pink-50 flex flex-col md:flex-row">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`
+              flex items-center gap-3 p-4 rounded-xl shadow-lg backdrop-blur-sm
+              border-l-4 min-w-80 max-w-96 transform transition-all duration-300 ease-in-out
+              animate-slide-in
+              ${toast.type === 'success' 
+                ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-400 text-pink-800' 
+                : toast.type === 'error'
+                ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-400 text-red-800'
+                : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-400 text-purple-800'
+              }
+            `}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === 'success' && (
+                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center">
+                  <CheckCircle size={18} className="text-pink-600" />
+                </div>
+              )}
+              {toast.type === 'error' && (
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle size={18} className="text-red-600" />
+                </div>
+              )}
+              {toast.type === 'info' && (
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Heart size={18} className="text-purple-600" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium leading-5">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="flex-shrink-0 p-1 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Sidebar - Hidden on mobile when note is selected */}
+      <div className={`w-full md:w-1/3 bg-white border-r border-pink-200 flex flex-col ${selectedNote ? 'hidden md:flex' : 'flex'}`}>
         {/* Header */}
         <div className="p-4 border-b border-pink-200">
           <div className="flex items-center justify-between mb-4">
@@ -207,14 +319,21 @@ const Notes: React.FC = () => {
         </div>
       </div>
 
-      {/* Note Editor */}
-      <div className="hidden md:flex flex-1 flex-col">
+      {/* Note Editor - Show on mobile when note is selected */}
+      <div className={`flex-1 flex flex-col ${selectedNote ? 'flex' : 'hidden md:flex'}`}>
         {selectedNote ? (
           <>
             {/* Editor Header */}
             <div className="bg-white border-b border-pink-200 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
+                  {/* Back button for mobile */}
+                  <button
+                    onClick={() => setSelectedNote(null)}
+                    className="md:hidden p-2 text-gray-600 hover:text-gray-800"
+                  >
+                    <X size={20} />
+                  </button>
                   <div className={`w-4 h-4 rounded-full ${selectedNote.color}`}></div>
                   <span className="text-sm text-gray-600">
                     {selectedNote.createdBy} • {formatDate(selectedNote.updatedAt)}
@@ -263,27 +382,39 @@ const Notes: React.FC = () => {
             </div>
 
             {/* Editor Content */}
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto">
               {isEditing ? (
                 <div className="space-y-4">
                   <input
                     type="text"
                     value={editingNote.title || ''}
                     onChange={(e) => setEditingNote(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full text-2xl font-bold text-gray-800 border-none outline-none bg-transparent"
+                    className="w-full text-xl md:text-2xl font-bold text-gray-800 border-none outline-none bg-transparent"
                     placeholder="Note title..."
                   />
+                  <div className="flex items-center gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium">Color:</span>
+                    <div className="flex gap-2 flex-wrap">
+                      {colors.map((c) => (
+                        <button
+                          key={c}
+                          className={`w-6 h-6 rounded-full border-2 ${c} ${editingNote.color === c ? 'border-gray-800' : 'border-transparent'}`}
+                          onClick={() => setEditingNote(prev => ({ ...prev, color: c }))}
+                        />
+                      ))}
+                    </div>
+                  </div>
                   <textarea
                     value={editingNote.content || ''}
                     onChange={(e) => setEditingNote(prev => ({ ...prev, content: e.target.value }))}
-                    className="w-full h-96 text-gray-700 border-none outline-none bg-transparent resize-none"
+                    className="w-full h-64 md:h-96 text-gray-700 border-none outline-none bg-transparent resize-none text-base leading-relaxed"
                     placeholder="Start writing your note..."
                   />
                 </div>
               ) : (
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-800 mb-4">{selectedNote.title}</h1>
-                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">{selectedNote.title}</h1>
+                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed text-base">
                     {selectedNote.content}
                   </div>
                 </div>
@@ -292,16 +423,32 @@ const Notes: React.FC = () => {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
+            <div className="text-center p-4">
               <div className="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Edit3 className="w-8 h-8 text-pink-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Select a note to view</h3>
-              <p className="text-gray-600">Choose a note from the sidebar to start reading or editing</p>
+              <p className="text-gray-600 text-center">Choose a note from the sidebar to start reading or editing</p>
             </div>
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes slide-in {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
