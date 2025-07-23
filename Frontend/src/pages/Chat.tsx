@@ -66,26 +66,26 @@ const Chat: React.FC = () => {
   // }, [user?.partnerId]);
 
   const fetchMessages = async () => {
-  try {
-    const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
-      credentials: 'include'
-    });
-    const data = await res.json();
-    if (res.ok && data.messages) {
-      const mapped = data.messages.map((msg: any) => ({
-        id: msg._id,
-        senderEmail: msg.senderEmail,
-        content: msg.content,
-        type: msg.type,
-        timestamp: new Date(msg.timestamp),
-        imageUrl: msg.type === 'image' ? msg.content : null
-      }));
-      setMessages(mapped);
+    try {
+      const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.messages) {
+        const mapped = data.messages.map((msg: any) => ({
+          id: msg._id,
+          senderEmail: msg.senderEmail,
+          content: msg.content,
+          type: msg.type,
+          timestamp: new Date(msg.timestamp),
+          imageUrl: msg.type === 'image' ? msg.content : null
+        }));
+        setMessages(mapped);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
     }
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-  }
-};
+  };
 
   const sendMessageToBackend = async (content: string, type: string = 'text', imageUrl?: string) => {
     try {
@@ -149,7 +149,7 @@ const Chat: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-pink-50">
       {/* Header */}
-      <div className="bg-white fixed border-b border-pink-200 p-4 w-full">
+      <div className="bg-white fixed border-b border-pink-200 p-4 w-full z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-pink-600 rounded-full flex items-center justify-center">
@@ -168,7 +168,7 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="pt-24 pb-24 overflow-y-auto flex-1 px-4 space-y-4">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -176,8 +176,8 @@ const Chat: React.FC = () => {
           >
             <div
               className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${msg.senderEmail === user?.email
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-white text-gray-800 border border-pink-200'
+                ? 'bg-pink-600 text-white'
+                : 'bg-white text-gray-800 border border-pink-200'
                 }`}
             >
               {msg.type === 'image' ? (
