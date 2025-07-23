@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, X, Download, Heart } from 'lucide-react';
+import { Plus, X, Download, Heart, AlertCircle, CheckCircle } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface GalleryItem {
   id: string;
@@ -10,79 +11,181 @@ interface GalleryItem {
   liked: boolean;
 }
 
+interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 const Gallery: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
+  const [isConverting, setIsConverting] = useState(false);
+  
+  // New state for upload modal
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [caption, setCaption] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  // Toast notification state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Mock gallery data
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([
-    {
-      id: '1',
-      url: 'https://images.pexels.com/photos/1007427/pexels-photo-1007427.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&dpr=1',
-      caption: 'Our perfect beach day! 🏖️',
-      uploadedBy: 'Jordan',
-      uploadedAt: new Date('2025-01-15'),
-      liked: true
-    },
-    {
-      id: '2',
-      url: 'https://images.pexels.com/photos/1024960/pexels-photo-1024960.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&dpr=1',
-      caption: 'Sunset dinner date 🌅',
-      uploadedBy: 'Alex',
-      uploadedAt: new Date('2025-01-14'),
-      liked: false
-    },
-    {
-      id: '3',
-      url: 'https://images.pexels.com/photos/1024995/pexels-photo-1024995.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&dpr=1',
-      caption: 'Coffee shop adventures ☕',
-      uploadedBy: 'Jordan',
-      uploadedAt: new Date('2025-01-13'),
-      liked: true
-    },
-    {
-      id: '4',
-      url: 'https://images.pexels.com/photos/1025000/pexels-photo-1025000.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&dpr=1',
-      caption: 'Hiking together 🥾',
-      uploadedBy: 'Alex',
-      uploadedAt: new Date('2025-01-12'),
-      liked: false
-    },
-    {
-      id: '5',
-      url: 'https://images.pexels.com/photos/1025011/pexels-photo-1025011.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&dpr=1',
-      caption: 'Movie night at home 🎬',
-      uploadedBy: 'Jordan',
-      uploadedAt: new Date('2025-01-11'),
-      liked: true
-    },
-    {
-      id: '6',
-      url: 'https://images.pexels.com/photos/1025022/pexels-photo-1025022.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&dpr=1',
-      caption: 'Cooking together 👨‍🍳',
-      uploadedBy: 'Alex',
-      uploadedAt: new Date('2025-01-10'),
-      liked: false
+  // Function to show toast messages
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now().toString();
+    const newToast = { id, message, type };
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 4000);
+  };
+
+  // Function to manually remove toast
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
+  // Function to convert HEIC to JPEG
+  const convertHeicToJpeg = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      // Create a dynamic import for heic2any
+      import('heic2any').then((heic2any) => {
+        heic2any.default({
+          blob: file,
+          toType: "image/jpeg",
+          quality: 0.9
+        }).then((convertedBlob) => {
+          const convertedFile = new File(
+            [convertedBlob as Blob], 
+            file.name.replace(/\.heic$/i, '.jpg'),
+            { 
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            }
+          );
+          resolve(convertedFile);
+        }).catch(reject);
+      }).catch(() => {
+        // If heic2any fails to load, reject with error
+        reject(new Error('HEIC conversion library not available'));
+      });
+    });
+  };
+
+  // Function to validate and convert image if needed
+  const processImage = async (file: File): Promise<File> => {
+    const fileType = file.type.toLowerCase();
+    const fileName = file.name.toLowerCase();
+    
+    // Check if it's already a supported format
+    if (fileType === 'image/jpeg' || fileType === 'image/jpg') {
+      return file;
     }
-  ]);
+    
+    // Check if it's HEIC format
+    if (fileType === 'image/heic' || fileName.endsWith('.heic')) {
+      setIsConverting(true);
+      showToast('Converting HEIC image to JPEG...', 'info');
+      try {
+        const convertedFile = await convertHeicToJpeg(file);
+        showToast('Image converted successfully! 💕', 'success');
+        return convertedFile;
+      } catch (error) {
+        throw new Error('Failed to convert HEIC image. Please use a JPG/JPEG image instead.');
+      } finally {
+        setIsConverting(false);
+      }
+    }
+    
+    // For other formats, throw an error
+    throw new Error('Please select a JPG, JPEG, or HEIC image file.');
+  };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setIsUploading(true);
-      // Simulate upload delay
-      setTimeout(() => {
+      try {
+        // Process the image (validate and convert if needed)
+        const processedFile = await processImage(file);
+        
+        setSelectedFile(processedFile);
+        setPreviewUrl(URL.createObjectURL(processedFile));
+        setShowUploadModal(true);
+        // Reset the input value so the same file can be selected again if needed
+        e.target.value = '';
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Error processing image', 'error');
+        e.target.value = '';
+      }
+    }
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!selectedFile || !caption.trim()) {
+      showToast('Please select an image and enter a caption', 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    showToast('Uploading your precious memory... 💖', 'info');
+    
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('caption', caption.trim());
+
+      const response = await fetch('http://localhost:8000/loveconnect/api/upload-photo/', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Add the new item to the gallery
         const newItem: GalleryItem = {
           id: Date.now().toString(),
-          url: URL.createObjectURL(file),
-          caption: 'New memory! 📸',
+          url: data.url,
+          caption: caption.trim(),
           uploadedBy: 'You',
           uploadedAt: new Date(),
           liked: false
         };
         setGalleryItems(prev => [newItem, ...prev]);
-        setIsUploading(false);
-      }, 1000);
+        
+        // Reset modal state
+        setShowUploadModal(false);
+        setSelectedFile(null);
+        setCaption('');
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(null);
+        }
+        
+        showToast('Photo uploaded successfully! Your love story grows 💕✨', 'success');
+      } else {
+        showToast(data.error || 'Upload failed. Please try again', 'error');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      showToast('Upload failed. Please check your connection and try again', 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUploadCancel = () => {
+    setShowUploadModal(false);
+    setSelectedFile(null);
+    setCaption('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
     }
   };
 
@@ -102,8 +205,86 @@ const Gallery: React.FC = () => {
     });
   };
 
+  useEffect(() => {
+    const fetchGallery = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/loveconnect/api/gallery/', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        const data = await res.json();
+        if (res.ok && data.gallery) {
+          const items: GalleryItem[] = data.gallery.map((item: any) => ({
+            id: item._id,
+            url: item.url,
+            caption: item.caption,
+            uploadedBy: item.uploadedBy,
+            uploadedAt: new Date(item.uploadedAt),
+            liked: false
+          }));
+          setGalleryItems(items);
+        } else {
+          console.error('Error fetching gallery:', data.error);
+        }
+      } catch (err) {
+        console.error('Fetch failed:', err);
+        showToast('Failed to load gallery. Please refresh the page', 'error');
+      }
+    };
+
+    fetchGallery();
+  }, []);
+
   return (
     <div className="min-h-screen bg-pink-50">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`
+              flex items-center gap-3 p-4 rounded-xl shadow-lg backdrop-blur-sm
+              border-l-4 min-w-80 max-w-96 transform transition-all duration-300 ease-in-out
+              animate-slide-in
+              ${toast.type === 'success' 
+                ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-400 text-pink-800' 
+                : toast.type === 'error'
+                ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-400 text-red-800'
+                : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-400 text-purple-800'
+              }
+            `}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === 'success' && (
+                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center">
+                  <CheckCircle size={18} className="text-pink-600" />
+                </div>
+              )}
+              {toast.type === 'error' && (
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle size={18} className="text-red-600" />
+                </div>
+              )}
+              {toast.type === 'info' && (
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Heart size={18} className="text-purple-600" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium leading-5">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="flex-shrink-0 p-1 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+
       {/* Header */}
       <div className="bg-white border-b border-pink-200 p-4">
         <div className="flex items-center justify-between">
@@ -114,7 +295,7 @@ const Gallery: React.FC = () => {
           <input
             id="upload-image"
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/jpg,.heic,.HEIC"
             onChange={handleImageUpload}
             className="hidden"
           />
@@ -128,11 +309,13 @@ const Gallery: React.FC = () => {
 
       {/* Gallery Grid */}
       <div className="p-4">
-        {isUploading && (
+        {(isUploading || isConverting) && (
           <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
             <div className="flex items-center justify-center space-x-2">
               <div className="w-4 h-4 bg-pink-600 rounded-full animate-pulse"></div>
-              <span className="text-gray-600">Uploading...</span>
+              <span className="text-gray-600">
+                {isConverting ? 'Converting image...' : 'Uploading...'}
+              </span>
             </div>
           </div>
         )}
@@ -144,6 +327,7 @@ const Gallery: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">No photos yet</h3>
             <p className="text-gray-600 mb-4">Start building your gallery together!</p>
+            <p className="text-xs text-gray-500 mb-4">Supports JPG, JPEG, and HEIC images</p>
             <label htmlFor="upload-image" className="bg-pink-600 text-white px-6 py-2 rounded-lg hover:bg-pink-700 cursor-pointer">
               Upload First Photo
             </label>
@@ -186,6 +370,70 @@ const Gallery: React.FC = () => {
         )}
       </div>
 
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-full overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Add Photo</h3>
+              <button
+                onClick={handleUploadCancel}
+                className="p-1 text-gray-600 hover:text-gray-800"
+                disabled={isConverting}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4">
+              {previewUrl && (
+                <div className="mb-4">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  {selectedFile && (
+                    <p className="text-xs text-gray-500 mt-1 text-center">
+                      {selectedFile.type === 'image/jpeg' ? 'JPEG' : selectedFile.type} • {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className="mb-4">
+                <label htmlFor="caption-input" className="block text-sm font-medium text-gray-700 mb-2">
+                  Caption
+                </label>
+                <textarea
+                  id="caption-input"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Write a caption for your photo..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  rows={3}
+                  disabled={isConverting}
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleUploadCancel}
+                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  disabled={isUploading || isConverting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadSubmit}
+                  disabled={isUploading || isConverting || !caption.trim()}
+                  className="flex-1 py-2 px-4 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isConverting ? 'Converting...' : isUploading ? 'Uploading...' : 'Upload'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Image Modal */}
       {selectedImage && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
@@ -226,6 +474,22 @@ const Gallery: React.FC = () => {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes slide-in {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

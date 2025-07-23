@@ -78,8 +78,11 @@ def login(request):
                 return JsonResponse({'error': 'You must pair with your partner before using chat.'}, status=403)
 
             payload = {
-                'email': email,
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                    '_id': str(user['_id']),
+                    'email': user['email'],
+                    'name': user['name'],
+                    'partnerCode': user.get('partnerCode'),
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
             }
             token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 

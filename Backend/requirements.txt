@@ -9,3 +9,4 @@ PyJWT>=2.0
 channels
 daphne
 bcrypt
+apscheduler
