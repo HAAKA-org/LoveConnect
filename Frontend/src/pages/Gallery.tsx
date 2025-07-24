@@ -9,6 +9,7 @@ interface GalleryItem {
   uploadedBy: string;
   uploadedAt: Date;
   liked: boolean;
+  likedBy?: string[];
 }
 
 interface ToastMessage {
@@ -22,7 +23,13 @@ const Gallery: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [isConverting, setIsConverting] = useState(false);
-  
+  // Edit & Delete Modal States
+  const [editModalItem, setEditModalItem] = useState<GalleryItem | null>(null);
+  const [editedCaption, setEditedCaption] = useState('');
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<GalleryItem | null>(null);
+  const [showOnlyLiked, setShowOnlyLiked] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
   // New state for upload modal
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -179,6 +186,68 @@ const Gallery: React.FC = () => {
     }
   };
 
+  const openEditModal = (item: GalleryItem) => {
+    setEditModalItem(item);
+    setEditedCaption(item.caption);
+  };
+
+  const submitEditCaption = async () => {
+    if (!editModalItem || !editedCaption.trim()) return;
+
+    try {
+      const res = await fetch("http://localhost:8000/loveconnect/api/edit-caption/", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: editModalItem.id, caption: editedCaption.trim() })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setGalleryItems(prev =>
+          prev.map(i => i.id === editModalItem.id ? { ...i, caption: editedCaption.trim() } : i)
+        );
+        showToast("Caption updated successfully 📝", 'success');
+        setEditModalItem(null);
+      } else {
+        showToast(data.error || "Failed to update caption", 'error');
+      }
+    } catch (err) {
+      console.error("Edit caption error:", err);
+      showToast("Network error while editing", 'error');
+    }
+  };
+
+  const openDeleteConfirm = (item: GalleryItem) => {
+    setDeleteConfirmItem(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmItem) return;
+
+    try {
+      const res = await fetch("http://localhost:8000/loveconnect/api/delete-photo/", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: deleteConfirmItem.id, url: deleteConfirmItem.url })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setGalleryItems(prev => prev.filter(i => i.id !== deleteConfirmItem.id));
+        setSelectedImage(null);
+        setDeleteConfirmItem(null);
+        showToast("Photo deleted 💔", 'success');
+      } else {
+        showToast(data.error || "Delete failed", 'error');
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      showToast("Network error while deleting", 'error');
+    }
+  };
+
   const handleUploadCancel = () => {
     setShowUploadModal(false);
     setSelectedFile(null);
@@ -189,12 +258,41 @@ const Gallery: React.FC = () => {
     }
   };
 
-  const toggleLike = (id: string) => {
-    setGalleryItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, liked: !item.liked } : item
-      )
-    );
+  const toggleLike = async (id: string) => {
+    const item = galleryItems.find(i => i.id === id);
+    if (!item || !currentUserEmail) return;
+
+    try {
+      const res = await fetch('http://localhost:8000/loveconnect/api/toggle-like/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        const isNowLiked = data.liked;
+        setGalleryItems(prev =>
+          prev.map(i =>
+            i.id === id
+              ? {
+                  ...i,
+                  liked: isNowLiked,
+                  likedBy: isNowLiked
+                    ? [...(i.likedBy || []), currentUserEmail]
+                    : (i.likedBy || []).filter(email => email !== currentUserEmail)
+                }
+              : i
+          )
+        );
+      } else {
+        showToast('Failed to toggle like', 'error');
+      }
+    } catch (err) {
+      console.error('Toggle like failed:', err);
+      showToast('Network error while liking', 'error');
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -207,32 +305,54 @@ const Gallery: React.FC = () => {
 
   useEffect(() => {
     const fetchGallery = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/loveconnect/api/gallery/', {
+    try {
+      const [userRes, galleryRes] = await Promise.all([
+        fetch('http://localhost:8000/loveconnect/api/get-user/', {
           method: 'GET',
           credentials: 'include'
-        });
+        }),
+        fetch('http://localhost:8000/loveconnect/api/gallery/', {
+          method: 'GET',
+          credentials: 'include'
+        })
+      ]);
 
-        const data = await res.json();
-        if (res.ok && data.gallery) {
-          const items: GalleryItem[] = data.gallery.map((item: any) => ({
-            id: item._id,
-            url: item.url,
-            caption: item.caption,
-            uploadedBy: item.uploadedBy,
-            uploadedAt: new Date(item.uploadedAt),
-            liked: false
-          }));
-          setGalleryItems(items);
-        } else {
-          console.error('Error fetching gallery:', data.error);
-        }
-      } catch (err) {
-        console.error('Fetch failed:', err);
-        showToast('Failed to load gallery. Please refresh the page', 'error');
+      const userData = await userRes.json();
+      const galleryData = await galleryRes.json();
+
+      if (userRes.ok && galleryRes.ok && galleryData.gallery) {
+        setCurrentUserEmail(userData.email);
+        const items: GalleryItem[] = galleryData.gallery.map((item: any) => ({
+          id: item._id,
+          url: item.url,
+          caption: item.caption,
+          uploadedBy: item.uploadedBy,
+          uploadedAt: new Date(item.uploadedAt),
+          liked: item.likedBy?.includes(userData.email),
+          likedBy: item.likedBy ?? []
+        }));
+        setGalleryItems(items);
+      } else {
+        console.error('Error fetching gallery:', galleryData.error);
+      }
+    } catch (err) {
+      console.error('Fetch failed:', err);
+      showToast('Failed to load gallery. Please refresh the page', 'error');
+    }
+  };
+
+    const fetchUser = async () => {
+      const res = await fetch("http://localhost:8000/loveconnect/api/get-user/", {
+        method: 'GET',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCurrentUserEmail(data.email);
       }
     };
-
+    
+    fetchUser();
     fetchGallery();
   }, []);
 
@@ -289,6 +409,14 @@ const Gallery: React.FC = () => {
       <div className="bg-white border-b border-pink-200 p-4 fixed w-full top-0 left-0 z-40 shadow-sm">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">Our Gallery</h1>
+          <button
+            onClick={() => setShowOnlyLiked(!showOnlyLiked)}
+            className={`px-3 py-1 ml-24 text-sm rounded-full transition ${
+              showOnlyLiked ? 'bg-pink-600 text-white' : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            {showOnlyLiked ? 'Liked Only' : 'All Posts'}
+          </button>
           <label htmlFor="upload-image" className="p-2 bg-pink-600 text-white rounded-full hover:bg-pink-700 cursor-pointer">
             <Plus size={20} />
           </label>
@@ -334,38 +462,38 @@ const Gallery: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {galleryItems.map((item) => (
+            {(showOnlyLiked ? galleryItems.filter(i => i.liked) : galleryItems).map((item) => (
               <div
-                key={item.id}
-                className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setSelectedImage(item)}
+              key={item.id}
+              className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setSelectedImage(item)}
               >
-                <div className="aspect-square overflow-hidden">
-                  <img
-                    src={item.url}
-                    alt={item.caption}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <div className="p-3">
-                  <p className="text-sm text-gray-800 line-clamp-2">{item.caption}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-gray-500">{item.uploadedBy}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(item.id);
-                      }}
-                      className={`p-1 rounded-full ${
-                        item.liked ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'
-                      }`}
-                    >
-                      <Heart size={16} fill={item.liked ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
+              <div className="aspect-square overflow-hidden">
+                <img
+                src={item.url}
+                alt={item.caption}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                />
+              </div>
+              <div className="p-3">
+                <p className="text-sm text-gray-800 line-clamp-2">{item.caption}</p>
+                <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500">{item.uploadedBy}</span>
+                <button
+                  onClick={(e) => {
+                  e.stopPropagation();
+                  toggleLike(item.id);
+                  }}
+                  className={`p-1 rounded-full ${
+                  item.liked ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'
+                  }`}
+                >
+                  <Heart size={16} fill={item.liked ? 'currentColor' : 'none'} />
+                </button>
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
           </div>
         )}
       </div>
@@ -444,21 +572,16 @@ const Gallery: React.FC = () => {
                 <span className="text-sm text-gray-500">{formatDate(selectedImage.uploadedAt)}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => toggleLike(selectedImage.id)}
-                  className={`p-2 rounded-full ${
-                    selectedImage.liked ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'
-                  }`}
-                >
+                <button onClick={() => toggleLike(selectedImage.id)} className={`p-2 rounded-full ${selectedImage.liked ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'}`}>
                   <Heart size={20} fill={selectedImage.liked ? 'currentColor' : 'none'} />
                 </button>
-                <button className="p-2 text-gray-600 hover:text-gray-800">
-                  <Download size={20} />
+                <button onClick={() => openEditModal(selectedImage)} className="p-2 text-pink-500 hover:text-pink-700">
+                  ✏️
                 </button>
-                <button
-                  onClick={() => setSelectedImage(null)}
-                  className="p-2 text-gray-600 hover:text-gray-800"
-                >
+                <button onClick={() => openDeleteConfirm(selectedImage)} className="p-2 text-red-500 hover:text-red-700">
+                  🗑
+                </button>
+                <button onClick={() => setSelectedImage(null)} className="p-2 text-gray-600 hover:text-gray-800">
                   <X size={20} />
                 </button>
               </div>
@@ -475,6 +598,44 @@ const Gallery: React.FC = () => {
         </div>
       )}
 
+      {/* Edit Caption Modal */}
+      {editModalItem && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Edit Caption</h3>
+            <textarea
+              className="w-full p-3 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500"
+              value={editedCaption}
+              onChange={(e) => setEditedCaption(e.target.value)}
+              rows={3}
+            />
+            <div className="mt-4 flex justify-end space-x-3">
+              <button onClick={() => setEditModalItem(null)} className="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+              <button onClick={submitEditCaption} className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmItem && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4">
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-xl p-6 text-center">
+            <h3 className="text-lg font-semibold text-gray-800">Delete Photo?</h3>
+            <p className="text-gray-600 mt-2">This memory will be removed permanently.</p>
+            <div className="mt-6 flex justify-center space-x-4">
+              <button onClick={() => setDeleteConfirmItem(null)} className="px-4 py-2 border rounded-lg text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={confirmDelete} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes slide-in {
           from {

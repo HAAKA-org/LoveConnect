@@ -323,7 +323,7 @@ const Chat: React.FC = () => {
       {/* Message Input */}
       <div className="bg-white border-t border-pink-200 p-4 fixed bottom-14 w-full mb-6">
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
-          <div className="flex space-x-2">
+          {/* <div className="flex space-x-2">
             <label htmlFor="image-upload" className="p-2 text-gray-500 hover:text-pink-600 cursor-pointer">
               <Image size={20} />
             </label>
@@ -343,7 +343,7 @@ const Chat: React.FC = () => {
             >
               <Mic size={20} />
             </button>
-          </div>
+          </div> */}
 
           <div className="flex-1 relative">
             <input
@@ -353,12 +353,12 @@ const Chat: React.FC = () => {
               placeholder="Type a message..."
               className="w-full px-4 py-2 pr-12 rounded-full border border-pink-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             />
-            <button
+            {/* <button
               type="button"
               className="absolute right-3 top-2 text-gray-500 hover:text-pink-600"
             >
               <Smile size={20} />
-            </button>
+            </button> */}
           </div>
 
           <button
