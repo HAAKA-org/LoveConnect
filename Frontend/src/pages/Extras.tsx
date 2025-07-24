@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, Gift, Gamepad2 as GamePad2, Coffee, Plus, Star, BookOpen } from 'lucide-react';
 
 interface LoveNote {
@@ -22,73 +22,49 @@ const Extras: React.FC = () => {
   const [newTodoItem, setNewTodoItem] = useState('');
 
   // Mock love jar data
-  const [loveNotes, setLoveNotes] = useState<LoveNote[]>([
-    {
-      id: '1',
-      message: 'I love how you always make me laugh, even on my worst days ❤️',
-      addedBy: 'Jordan',
-      isRevealed: false,
-      addedAt: new Date('2025-01-15')
-    },
-    {
-      id: '2',
-      message: 'Your smile is the first thing I think about in the morning 😊',
-      addedBy: 'Alex',
-      isRevealed: true,
-      addedAt: new Date('2025-01-14')
-    },
-    {
-      id: '3',
-      message: 'Thank you for being my best friend and my greatest love 💕',
-      addedBy: 'Jordan',
-      isRevealed: false,
-      addedAt: new Date('2025-01-13')
-    }
-  ]);
+  const [loveNotes, setLoveNotes] = useState<LoveNote[]>([]);
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
 
-  // Mock todo data
-  const [todoItems, setTodoItems] = useState<TodoItem[]>([
-    {
-      id: '1',
-      title: 'Plan our weekend getaway',
-      isCompleted: false,
-      addedBy: 'Alex'
-    },
-    {
-      id: '2',
-      title: 'Try that new restaurant downtown',
-      isCompleted: true,
-      addedBy: 'Jordan'
-    },
-    {
-      id: '3',
-      title: 'Watch the sunset together',
-      isCompleted: false,
-      addedBy: 'Alex'
-    },
-    {
-      id: '4',
-      title: 'Learn to cook pasta from scratch',
-      isCompleted: false,
-      addedBy: 'Jordan'
-    }
-  ]);
+  useEffect(() => {
+    fetch('http://localhost:8000/loveconnect/api/extras/', {
+      credentials: 'include'
+    })
+      .then(res => res.json())
+      .then(data => {
+        const jar = data.loveJar.map((note: any) => ({
+          ...note,
+          addedAt: new Date(note.addedAt)
+        }));
+        const todos = data.todoList;
 
-  const handleAddLoveNote = () => {
-    if (newLoveNote.trim()) {
-      const note: LoveNote = {
-        id: Date.now().toString(),
-        message: newLoveNote,
-        addedBy: 'You',
-        isRevealed: false,
-        addedAt: new Date()
-      };
-      setLoveNotes(prev => [...prev, note]);
+        setLoveNotes(jar);
+        setTodoItems(todos);
+      });
+  }, []);
+
+  
+  const handleAddLoveNote = async () => {
+    if (!newLoveNote.trim()) return;
+    const res = await fetch('http://localhost:8000/loveconnect/api/extras/lovejar/add/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: newLoveNote })
+    });
+
+    if (res.ok) {
       setNewLoveNote('');
+      const note = await res.json();
+      location.reload(); // OR re-fetch extras
     }
   };
 
-  const handleRevealNote = (id: string) => {
+  const handleRevealNote = async (id: string) => {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/lovejar/reveal/${id}/`, {
+      method: 'PATCH',
+      credentials: 'include'
+    });
+
     setLoveNotes(prev =>
       prev.map(note =>
         note.id === id ? { ...note, isRevealed: true } : note
@@ -96,26 +72,51 @@ const Extras: React.FC = () => {
     );
   };
 
-  const handleAddTodo = () => {
-    if (newTodoItem.trim()) {
-      const todo: TodoItem = {
-        id: Date.now().toString(),
-        title: newTodoItem,
-        isCompleted: false,
-        addedBy: 'You'
-      };
-      setTodoItems(prev => [...prev, todo]);
+  const handleAddTodo = async () => {
+    if (!newTodoItem.trim()) return;
+
+    const res = await fetch('http://localhost:8000/loveconnect/api/extras/todo/add/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTodoItem })
+    });
+
+    if (res.ok) {
       setNewTodoItem('');
+      location.reload(); // OR re-fetch extras
     }
   };
 
-  const handleToggleTodo = (id: string) => {
+  const handleToggleTodo = async (id: string) => {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/todo/toggle/${id}/`, {
+      method: 'PATCH',
+      credentials: 'include'
+    });
+
     setTodoItems(prev =>
       prev.map(todo =>
         todo.id === id ? { ...todo, isCompleted: !todo.isCompleted } : todo
       )
     );
   };
+
+  const handleDeleteTodo = async (id: string) => {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/todo/delete/${id}/`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    setTodoItems(prev => prev.filter(todo => todo.id !== id));
+  };
+
+  const handleDeleteLoveNote = async (id: string) => {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/lovejar/delete/${id}/`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    setLoveNotes(prev => prev.filter(note => note.id !== id));
+  };
+
 
   const tabs = [
     { id: 'love-jar', label: 'Love Jar', icon: Heart },
@@ -192,11 +193,25 @@ const Extras: React.FC = () => {
               {loveNotes.map((note) => (
                 <div
                   key={note.id}
-                  className={`bg-white rounded-xl p-6 shadow-sm border-2 ${
-                    note.isRevealed ? 'border-pink-200' : 'border-pink-400 cursor-pointer hover:border-pink-500'
+                  className={`relative bg-white rounded-xl p-6 shadow-sm border-2 transition-all ${
+                    note.isRevealed
+                      ? 'border-pink-200'
+                      : 'border-pink-400 cursor-pointer hover:border-pink-500'
                   }`}
                   onClick={() => !note.isRevealed && handleRevealNote(note.id)}
                 >
+                  {/* Delete Button (Always visible) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent triggering reveal
+                      handleDeleteLoveNote(note.id);
+                    }}
+                    className="absolute top-2 right-2 text-red-400 hover:text-red-600 text-xl font-bold"
+                    title="Delete"
+                  >
+                    ×
+                  </button>
+
                   {note.isRevealed ? (
                     <div>
                       <p className="text-gray-800 mb-3">{note.message}</p>
@@ -258,10 +273,13 @@ const Extras: React.FC = () => {
                 {todoItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`flex items-center space-x-3 p-3 rounded-lg border ${
-                      item.isCompleted ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                    className={`relative flex items-center space-x-3 p-3 rounded-lg border transition-all ${
+                      item.isCompleted
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-gray-50 border-gray-200 hover:border-purple-300'
                     }`}
                   >
+                    {/* Completion Checkbox */}
                     <button
                       onClick={() => handleToggleTodo(item.id)}
                       className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
@@ -272,12 +290,27 @@ const Extras: React.FC = () => {
                     >
                       {item.isCompleted && <span className="text-xs">✓</span>}
                     </button>
-                    <span className={`flex-1 ${
-                      item.isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
-                    }`}>
+
+                    {/* Title */}
+                    <span
+                      className={`flex-1 ${
+                        item.isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
+                      }`}
+                    >
                       {item.title}
                     </span>
+
+                    {/* Metadata */}
                     <span className="text-sm text-gray-500">by {item.addedBy}</span>
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => handleDeleteTodo(item.id)}
+                      className="ml-3 text-red-400 hover:text-red-600 text-lg font-semibold"
+                      title="Delete"
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>

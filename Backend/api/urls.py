@@ -3,6 +3,7 @@ from .views import *
 from .gallery import *
 from .notes import *
 from .reminders import *
+from .extras import *
 
 urlpatterns = [
     path('signup/', signup, name="signup"),
@@ -34,4 +35,14 @@ urlpatterns = [
     path('reminders/update/<str:id>/', update_reminder, name="update_reminder"),
     path('reminders/complete/<str:id>/', toggle_complete_reminder, name="toggle_complete_reminder"),
     path('reminders/delete/<str:id>/', delete_reminder, name="delete_reminder"),
+
+    # Extras URLs
+    path('extras/lovejar/add/', add_love_note, name='add_love_note'),
+    path('extras/lovejar/reveal/<str:note_id>/', reveal_love_note, name='reveal_love_note'),
+    path('extras/todo/add/', add_todo, name='add_todo'),
+    path('extras/todo/toggle/<str:todo_id>/', toggle_todo, name='toggle_todo'),
+    path('extras/', get_extras, name='get_extras'),
+    path('extras/lovejar/delete/<str:note_id>/', delete_love_note, name='delete_love_note'),
+    path('extras/todo/delete/<str:todo_id>/', delete_todo, name='delete_todo'),
+
 ]
