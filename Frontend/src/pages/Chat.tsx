@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Image, Mic, Smile } from 'lucide-react';
+import { Send, Image, Mic, Smile, CheckCircle, AlertCircle, Heart, X, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
 
 const Chat: React.FC = () => {
   const [message, setMessage] = useState('');
@@ -20,6 +26,25 @@ const Chat: React.FC = () => {
   const { user } = useAuth();
   const socketRef = useRef<WebSocket | null>(null);
 
+  // Toast notification state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Function to show toast messages
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now().toString();
+    const newToast = { id, message, type };
+    setToasts(prev => [...prev, newToast]);
+
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 4000);
+  };
+
+  // Function to manually remove toast
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,6 +74,14 @@ const Chat: React.FC = () => {
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
+      if (data.type === 'reminder_alert') {
+        const reminder = data.reminder;
+        showToast(`🔔 Reminder: ${reminder.title} - ${reminder.description}`, 'info');
+        return;
+      }
+
+      // Handle chat message
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         senderEmail: data.senderEmail,
@@ -74,6 +107,11 @@ const Chat: React.FC = () => {
 
     socket.onclose = () => {
       console.warn("WebSocket closed");
+      showToast('Connection lost. Trying to reconnect...', 'error');
+    };
+
+    socket.onopen = () => {
+      showToast('Connected to chat! 💕', 'success');
     };
 
     return () => {
@@ -81,33 +119,28 @@ const Chat: React.FC = () => {
     };
   }, [user?.partnerCode]);
 
-  // useEffect(() => {
-  //   if (user?.partnerId) {
-  //     fetchMessages();
-  //   }
-  // }, [user?.partnerId]);
-
   const fetchMessages = async () => {
-  try {
-    const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
-      credentials: 'include'
-    });
-    const data = await res.json();
-    if (res.ok && data.messages) {
-      const mapped = data.messages.map((msg: any) => ({
-        id: msg._id,
-        senderEmail: msg.senderEmail,
-        content: msg.content,
-        type: msg.type,
-        timestamp: new Date(msg.timestamp),
-        imageUrl: msg.type === 'image' ? msg.content : null
-      }));
-      setMessages(mapped);
+    try {
+      const res = await fetch('http://localhost:8000/loveconnect/api/get-messages/', {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.messages) {
+        const mapped = data.messages.map((msg: any) => ({
+          id: msg._id,
+          senderEmail: msg.senderEmail,
+          content: msg.content,
+          type: msg.type,
+          timestamp: new Date(msg.timestamp),
+          imageUrl: msg.type === 'image' ? msg.content : null
+        }));
+        setMessages(mapped);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      showToast('Failed to load messages. Please refresh', 'error');
     }
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-  }
-};
+  };
 
   const sendMessageToBackend = async (content: string, type: string = 'text', imageUrl?: string) => {
     try {
@@ -116,7 +149,7 @@ const Chat: React.FC = () => {
       const response = await fetch('http://localhost:8000/loveconnect/api/send-message/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Ensure JWT cookie is included
+        credentials: 'include',
         body: JSON.stringify({
           type: type,
           content: type === 'image' ? imageUrl : content
@@ -124,22 +157,29 @@ const Chat: React.FC = () => {
       });
 
       if (response.ok) {
-        await fetchMessages(); // Refresh after send
+        await fetchMessages();
+        if (type === 'image') {
+          showToast('Image sent successfully! 📸💕', 'success');
+        }
       } else {
         const err = await response.json();
         console.error('Failed to send message:', err.error || 'Unknown error');
+        showToast('Failed to send message. Please try again', 'error');
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      showToast('Failed to send message. Please try again', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    if (!message.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      showToast('Please check your connection and try again', 'error');
+      return;
+    }
 
     const payload = {
       content: message,
@@ -150,11 +190,10 @@ const Chat: React.FC = () => {
     setMessage('');
   };
 
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // In a real app, you'd upload to a server and get back a URL
+      showToast('Uploading your precious moment... 📸', 'info');
       const imageUrl = URL.createObjectURL(file);
       sendMessageToBackend('', 'image', imageUrl);
     }
@@ -170,14 +209,66 @@ const Chat: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-pink-50">
+
       {/* Notification Banner */}
       {showNotification && (
         <div className="fixed top-0 left-0 w-full bg-pink-600 text-white text-center py-2 z-50 transition">
           {notificationMsg}
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`
+              flex items-center gap-3 p-4 rounded-xl shadow-lg backdrop-blur-sm
+              border-l-4 min-w-80 max-w-96 transform transition-all duration-300 ease-in-out
+              animate-slide-in
+              ${toast.type === 'success'
+                ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-400 text-pink-800'
+                : toast.type === 'error'
+                  ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-400 text-red-800'
+                  : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-400 text-purple-800'
+              }
+            `}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === 'success' && (
+                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center">
+                  <CheckCircle size={18} className="text-pink-600" />
+                </div>
+              )}
+              {toast.type === 'error' && (
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle size={18} className="text-red-600" />
+                </div>
+              )}
+              {toast.type === 'info' && (
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  {toast.message.includes('🔔') ? (
+                    <Bell size={18} className="text-purple-600" />
+                  ) : (
+                    <Heart size={18} className="text-purple-600" />
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium leading-5">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="flex-shrink-0 p-1 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
       {/* Header */}
-      <div className="bg-white fixed border-b border-pink-200 p-4 w-full">
+      <div className="bg-white border-b border-pink-200 p-4 fixed w-full z-10 top-0 animate-slide-in">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-pink-600 rounded-full flex items-center justify-center">
@@ -196,7 +287,7 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pt-20 pb-24">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -204,8 +295,8 @@ const Chat: React.FC = () => {
           >
             <div
               className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${msg.senderEmail === user?.email
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-white text-gray-800 border border-pink-200'
+                ? 'bg-pink-600 text-white'
+                : 'bg-white text-gray-800 border border-pink-200'
                 }`}
             >
               {msg.type === 'image' ? (
@@ -230,7 +321,7 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Message Input */}
-      <div className="bg-white border-t border-pink-200 p-4 fixed bottom-14 w-full">
+      <div className="bg-white border-t border-pink-200 p-4 fixed bottom-14 w-full mb-6">
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
           <div className="flex space-x-2">
             <label htmlFor="image-upload" className="p-2 text-gray-500 hover:text-pink-600 cursor-pointer">
@@ -272,13 +363,31 @@ const Chat: React.FC = () => {
 
           <button
             type="submit"
-            disabled={!message.trim()}
+            disabled={!message.trim() || isLoading}
             className="p-2 bg-pink-600 text-white rounded-full hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send size={20} />
           </button>
         </form>
       </div>
+
+      <style>
+        {`
+          @keyframes slide-in {
+            from {
+              opacity: 0;
+              transform: translateX(100%);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .animate-slide-in {
+            animation: slide-in 0.3s ease-out;
+          }
+        `}
+      </style>
     </div>
   );
 };

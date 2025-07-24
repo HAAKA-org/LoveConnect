@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, Clock, Repeat, Bell, Edit3, Trash2, Check } from 'lucide-react';
+import axios from 'axios';
 
 interface Reminder {
   id: string;
@@ -26,102 +27,160 @@ const Reminders: React.FC = () => {
     priority: 'medium'
   });
 
-  // Mock reminders data
-  const [reminders, setReminders] = useState<Reminder[]>([
-    {
-      id: '1',
-      title: 'Anniversary Dinner Reservation',
-      description: 'Call the restaurant to make reservation for our anniversary',
-      date: new Date('2025-01-18'),
-      time: '10:00',
-      isCompleted: false,
-      isRecurring: false,
-      createdBy: 'Alex',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      title: 'Good Morning Text',
-      description: 'Send a sweet good morning message',
-      date: new Date(),
-      time: '07:00',
-      isCompleted: true,
-      isRecurring: true,
-      recurringType: 'daily',
-      createdBy: 'Jordan',
-      priority: 'medium'
-    },
-    {
-      id: '3',
-      title: 'Plan Weekend Activity',
-      description: 'Decide what we want to do this weekend',
-      date: new Date('2025-01-17'),
-      time: '19:00',
-      isCompleted: false,
-      isRecurring: false,
-      createdBy: 'Alex',
-      priority: 'low'
-    },
-    {
-      id: '4',
-      title: 'Buy Flowers',
-      description: 'Pick up flowers for surprise date night',
-      date: new Date('2025-01-16'),
-      time: '16:00',
-      isCompleted: false,
-      isRecurring: false,
-      createdBy: 'Jordan',
-      priority: 'medium'
-    }
-  ]);
+  // Reminders data
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
 
-  const handleCreateReminder = () => {
-    if (newReminder.title && newReminder.description) {
-      const reminder: Reminder = {
-        id: Date.now().toString(),
-        title: newReminder.title,
-        description: newReminder.description,
-        date: newReminder.date || new Date(),
-        time: newReminder.time || '12:00',
-        isCompleted: false,
-        isRecurring: newReminder.isRecurring || false,
-        recurringType: newReminder.recurringType,
-        createdBy: 'You',
-        priority: newReminder.priority || 'medium'
-      };
-      setReminders(prev => [...prev, reminder]);
-      setNewReminder({
-        title: '',
-        description: '',
-        date: new Date(),
-        time: '12:00',
-        isCompleted: false,
-        isRecurring: false,
-        priority: 'medium'
+  // Notification state
+  const [notification, setNotification] = useState<string | null>(null);
+  const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchReminders = async () => {
+      try {
+        const res = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
+          withCredentials: true
+        });
+        // Convert date strings to Date objects
+        const remindersWithDates = res.data.reminders.map((reminder: any) => ({
+          ...reminder,
+          id: reminder._id,
+          date: new Date(reminder.date)
+        }));
+        setReminders(remindersWithDates);
+      } catch (err) {
+        console.error('Failed to fetch reminders:', err);
+      }
+    };
+    fetchReminders();
+  }, []);
+
+  // Notification effect: check every minute for due reminders
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      reminders.forEach(reminder => {
+        if (!reminder.isCompleted && !notifiedIds.includes(reminder.id)) {
+          // Combine date and time
+          const reminderDateTime = new Date(reminder.date);
+          if (reminder.time) {
+            const [hours, minutes] = reminder.time.split(':');
+            reminderDateTime.setHours(Number(hours), Number(minutes), 0, 0);
+          }
+          // If reminder is due (within 2 minute window)
+          if (
+            now >= reminderDateTime &&
+            now.getTime() - reminderDateTime.getTime() < 120000
+          ) {
+            setNotification(`Reminder: ${reminder.title} - ${reminder.description}`);
+            setNotifiedIds(prev => [...prev, reminder.id]);
+          }
+        }
       });
-      setIsCreating(false);
+    }, 10000); // check every 10 seconds
+    return () => clearInterval(interval);
+  }, [reminders, notifiedIds]);
+
+  const handleCreateReminder = async () => {
+    if (newReminder.title && newReminder.description) {
+      try {
+        if (isEditing && editingReminder) {
+          // PATCH to update
+          await axios.patch(
+            `http://localhost:8000/loveconnect/api/reminders/update/${editingReminder.id}/`,
+            newReminder,
+            { withCredentials: true }
+          );
+        } else {
+          // POST to create
+          await axios.post(
+            'http://localhost:8000/loveconnect/api/reminders/create/',
+            newReminder,
+            { withCredentials: true }
+          );
+        }
+
+        // Reset UI state
+        setIsEditing(false);
+        setEditingReminder(null);
+        setNewReminder({
+          title: '',
+          description: '',
+          date: new Date(),
+          time: '12:00',
+          isCompleted: false,
+          isRecurring: false,
+          priority: 'medium'
+        });
+        setIsCreating(false);
+
+        // Refresh list
+        const refreshed = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
+          withCredentials: true
+        });
+        const remindersWithDates = refreshed.data.reminders.map((reminder: any) => ({
+          ...reminder,
+          id: reminder._id,
+          date: new Date(reminder.date)
+        }));
+        setReminders(remindersWithDates);
+      } catch (err) {
+        console.error('Error saving reminder:', err);
+      }
     }
   };
 
-  const toggleComplete = (id: string) => {
-    setReminders(prev =>
-      prev.map(reminder =>
-        reminder.id === id
-          ? { ...reminder, isCompleted: !reminder.isCompleted }
-          : reminder
-      )
-    );
+  const toggleComplete = async (id: string) => {
+    try {
+      await axios.patch(`http://localhost:8000/loveconnect/api/reminders/complete/${id}/`, null, {
+        withCredentials: true
+      });
+      const res = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
+        withCredentials: true
+      });
+      // Convert date strings to Date objects
+      const remindersWithDates = res.data.reminders.map((reminder: any) => ({
+        ...reminder,
+          id: reminder._id,
+          date: new Date(reminder.date)
+      }));
+      setReminders(remindersWithDates);
+    } catch (err) {
+      console.error('Failed to toggle reminder:', err);
+    }
   };
 
-  const deleteReminder = (id: string) => {
-    setReminders(prev => prev.filter(reminder => reminder.id !== id));
+  const deleteReminder = async (id: string) => {
+    try {
+      await axios.delete(`http://localhost:8000/loveconnect/api/reminders/delete/${id}/`, {
+        withCredentials: true
+      });
+      const res = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
+        withCredentials: true
+      });
+      // Convert date strings to Date objects
+      const remindersWithDates = res.data.reminders.map((reminder: any) => ({
+        ...reminder,
+          id: reminder._id,
+          date: new Date(reminder.date)
+      }));
+      setReminders(remindersWithDates);
+    } catch (err) {
+      console.error('Failed to delete reminder:', err);
+    }
   };
 
   const formatDate = (date: Date) => {
+    // Add safety check
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
+    
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
       return 'Today';
     } else if (date.toDateString() === tomorrow.toDateString()) {
@@ -157,6 +216,19 @@ const Reminders: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-pink-50">
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-6 right-6 z-50 bg-pink-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 animate-fade-in">
+          <Bell className="w-5 h-5 mr-2" />
+          <span>{notification}</span>
+          <button
+            className="ml-4 px-2 py-1 bg-white text-pink-600 rounded hover:bg-pink-100"
+            onClick={() => setNotification(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-pink-200 p-4">
         <div className="flex items-center justify-between">
@@ -193,7 +265,7 @@ const Reminders: React.FC = () => {
                   placeholder="What do you need to remember?"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
@@ -205,7 +277,7 @@ const Reminders: React.FC = () => {
                   placeholder="Add some details..."
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -218,7 +290,7 @@ const Reminders: React.FC = () => {
                     className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Time
@@ -230,7 +302,7 @@ const Reminders: React.FC = () => {
                     className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Priority
@@ -246,7 +318,7 @@ const Reminders: React.FC = () => {
                   </select>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -259,7 +331,7 @@ const Reminders: React.FC = () => {
                   Recurring reminder
                 </label>
               </div>
-              
+
               {newReminder.isRecurring && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -277,7 +349,7 @@ const Reminders: React.FC = () => {
                   </select>
                 </div>
               )}
-              
+
               <div className="flex items-center space-x-3">
                 <button
                   onClick={handleCreateReminder}
@@ -327,41 +399,37 @@ const Reminders: React.FC = () => {
             sortedReminders.map((reminder) => (
               <div
                 key={reminder.id}
-                className={`bg-white rounded-xl p-6 shadow-sm border-l-4 ${
-                  reminder.isCompleted ? 'border-green-500 opacity-75' : 'border-pink-500'
-                }`}
+                className={`bg-white rounded-xl p-6 shadow-sm border-l-4 ${reminder.isCompleted ? 'border-green-500 opacity-75' : 'border-pink-500'
+                  }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
                     <button
                       onClick={() => toggleComplete(reminder.id)}
-                      className={`mt-1 p-2 rounded-full ${
-                        reminder.isCompleted
-                          ? 'bg-green-100 text-green-600'
-                          : 'bg-pink-100 text-pink-600 hover:bg-pink-200'
-                      }`}
+                      className={`mt-1 p-2 rounded-full ${reminder.isCompleted
+                        ? 'bg-green-100 text-green-600'
+                        : 'bg-pink-100 text-pink-600 hover:bg-pink-200'
+                        }`}
                     >
                       <Check size={16} />
                     </button>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className={`font-semibold ${
-                          reminder.isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
-                        }`}>
+                        <h3 className={`font-semibold ${reminder.isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
+                          }`}>
                           {reminder.title}
                         </h3>
                         <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(reminder.priority)}`}>
                           {reminder.priority}
                         </span>
                       </div>
-                      
-                      <p className={`text-sm mb-3 ${
-                        reminder.isCompleted ? 'text-gray-400' : 'text-gray-600'
-                      }`}>
+
+                      <p className={`text-sm mb-3 ${reminder.isCompleted ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
                         {reminder.description}
                       </p>
-                      
+
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <Calendar size={14} />
@@ -381,9 +449,20 @@ const Reminders: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
-                    <button className="p-2 text-gray-400 hover:text-pink-600 rounded-lg">
+                    <button
+                      onClick={() => {
+                        setIsCreating(true);
+                        setIsEditing(true);
+                        setEditingReminder(reminder);
+                        setNewReminder({
+                          ...reminder,
+                          date: new Date(reminder.date)
+                        });
+                      }}
+                      className="p-2 text-gray-400 hover:text-pink-600 rounded-lg"
+                    >
                       <Edit3 size={16} />
                     </button>
                     <button

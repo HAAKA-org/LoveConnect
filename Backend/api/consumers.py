@@ -133,3 +133,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
+
+    async def reminder_alert(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "reminder_alert",
+            "reminder": event["reminder"]
+        }))
+

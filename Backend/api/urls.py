@@ -2,6 +2,7 @@ from django.urls import path
 from .views import *
 from .gallery import *
 from .notes import *
+from .reminders import *
 
 urlpatterns = [
     path('signup/', signup, name="signup"),
@@ -20,4 +21,11 @@ urlpatterns = [
     path('notes/<str:note_id>/', update_note, name="update_note"),
     path('notes/<str:note_id>/delete/', delete_note, name="delete_note"),
     path('notes/<str:note_id>/favorite/', toggle_favorite, name="toggle_favorite"),
+
+    # Reminders URLs
+    path('reminders/', get_reminders, name="get_reminders"),
+    path('reminders/create/', create_reminder, name="create_reminder"),
+    path('reminders/update/<str:id>/', update_reminder, name="update_reminder"),
+    path('reminders/complete/<str:id>/', toggle_complete_reminder, name="toggle_complete_reminder"),
+    path('reminders/delete/<str:id>/', delete_reminder, name="delete_reminder"),
 ]
