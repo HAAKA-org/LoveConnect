@@ -27,12 +27,16 @@ const Reminders: React.FC = () => {
     priority: 'medium'
   });
 
-  // Mock reminders data
+  // Reminders data
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
 
-    useEffect(() => {
+  // Notification state
+  const [notification, setNotification] = useState<string | null>(null);
+  const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
+
+  useEffect(() => {
     const fetchReminders = async () => {
       try {
         const res = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
@@ -41,8 +45,8 @@ const Reminders: React.FC = () => {
         // Convert date strings to Date objects
         const remindersWithDates = res.data.reminders.map((reminder: any) => ({
           ...reminder,
-            id: reminder._id,
-            date: new Date(reminder.date)
+          id: reminder._id,
+          date: new Date(reminder.date)
         }));
         setReminders(remindersWithDates);
       } catch (err) {
@@ -51,6 +55,32 @@ const Reminders: React.FC = () => {
     };
     fetchReminders();
   }, []);
+
+  // Notification effect: check every minute for due reminders
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      reminders.forEach(reminder => {
+        if (!reminder.isCompleted && !notifiedIds.includes(reminder.id)) {
+          // Combine date and time
+          const reminderDateTime = new Date(reminder.date);
+          if (reminder.time) {
+            const [hours, minutes] = reminder.time.split(':');
+            reminderDateTime.setHours(Number(hours), Number(minutes), 0, 0);
+          }
+          // If reminder is due (within 2 minute window)
+          if (
+            now >= reminderDateTime &&
+            now.getTime() - reminderDateTime.getTime() < 120000
+          ) {
+            setNotification(`Reminder: ${reminder.title} - ${reminder.description}`);
+            setNotifiedIds(prev => [...prev, reminder.id]);
+          }
+        }
+      });
+    }, 10000); // check every 10 seconds
+    return () => clearInterval(interval);
+  }, [reminders, notifiedIds]);
 
   const handleCreateReminder = async () => {
     if (newReminder.title && newReminder.description) {
@@ -186,6 +216,19 @@ const Reminders: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-pink-50">
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-6 right-6 z-50 bg-pink-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 animate-fade-in">
+          <Bell className="w-5 h-5 mr-2" />
+          <span>{notification}</span>
+          <button
+            className="ml-4 px-2 py-1 bg-white text-pink-600 rounded hover:bg-pink-100"
+            onClick={() => setNotification(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-pink-200 p-4">
         <div className="flex items-center justify-between">

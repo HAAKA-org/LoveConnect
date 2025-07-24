@@ -20,6 +20,8 @@ const Chat: React.FC = () => {
   }>>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const socketRef = useRef<WebSocket | null>(null);
@@ -52,6 +54,13 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
   // Fetch messages on component mount
   useEffect(() => {
     if (!user?.partnerCode) return;
@@ -81,6 +90,19 @@ const Chat: React.FC = () => {
         timestamp: new Date(data.timestamp),
         imageUrl: data.type === 'image' ? data.content : null
       }]);
+      // Show notification if message is from partner
+      if (data.senderEmail !== user?.email) {
+        setNotificationMsg('New message from your partner');
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000); // Hide after 3s
+        // Browser notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("LoveConnect", {
+            body: data.type === 'image' ? 'Image received' : data.content,
+            icon: "/favicon.ico"
+          });
+        }
+      }
     };
 
     socket.onclose = () => {
@@ -187,6 +209,14 @@ const Chat: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-pink-50">
+
+      {/* Notification Banner */}
+      {showNotification && (
+        <div className="fixed top-0 left-0 w-full bg-pink-600 text-white text-center py-2 z-50 transition">
+          {notificationMsg}
+        </div>
+      )}
+
       {/* Toast Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map((toast) => (
@@ -237,7 +267,6 @@ const Chat: React.FC = () => {
           </div>
         ))}
       </div>
-
       {/* Header */}
       <div className="bg-white border-b border-pink-200 p-4 fixed w-full z-10 top-0 animate-slide-in">
         <div className="flex items-center justify-between">
