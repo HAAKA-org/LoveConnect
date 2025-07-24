@@ -32,8 +32,9 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
-  const [currentPin, setCurrentPin] = useState('');
-  const [newPin, setNewPin] = useState('');
+  const [currentPin, setCurrentPin] = useState(['', '', '', '']);
+  const [newPin, setNewPin] = useState(['', '', '', '']);
+  const [confirmPin, setConfirmPin] = useState(['', '', '', '']);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || '');
@@ -43,8 +44,10 @@ const Settings: React.FC = () => {
   const [showBreakupModal, setShowBreakupModal] = useState(false);
   const [typingEffect, setTypingEffect] = useState('');
 
+  // Floating hearts animation for love modal
+  type Heart = { id: number; left: number; size: number; duration: number };
+  const [hearts, setHearts] = useState<Heart[]>([]);
   const [breakupReason, setBreakupReason] = useState('');
-
   const [notifications, setNotifications] = useState({
     messages: true,
     reminders: true,
@@ -112,8 +115,12 @@ const Settings: React.FC = () => {
   };
 
   const handleChangePin = async () => {
-    if (currentPin.length !== 4 || newPin.length !== 4) {
-      setError('PIN must be exactly 4 digits');
+    const currentPinStr = currentPin.join('');
+    const newPinStr = newPin.join('');
+    const confirmPinStr = confirmPin.join('');
+
+    if (newPinStr !== confirmPinStr) {
+      setError('New PIN and Confirm PIN do not match');
       return;
     }
 
@@ -125,8 +132,8 @@ const Settings: React.FC = () => {
         },
         credentials: 'include',
         body: JSON.stringify({
-          oldPin: currentPin,
-          newPin: newPin,
+          oldPin: currentPinStr,
+          newPin: newPinStr,
         }),
       });
 
@@ -135,8 +142,9 @@ const Settings: React.FC = () => {
       }
 
       setShowChangePinModal(false);
-      setCurrentPin('');
-      setNewPin('');
+      setCurrentPin(['', '', '', '']);
+      setNewPin(['', '', '', '']);
+      setConfirmPin(['', '', '', '']);
       setError('');
       showToast('PIN changed successfully! 💕', 'success');
     } catch (err) {
@@ -172,10 +180,29 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleNumericInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const key = e.key;
-    if (!/[0-9]/.test(key) && key !== 'Backspace' && key !== 'Delete' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
-      e.preventDefault();
+  const handleDigitChange = (e: React.ChangeEvent<HTMLInputElement>, index: number, type: string) => {
+    const value = e.target.value.replace(/\D/, '');
+    if (!value) return;
+
+    const setter = {
+      current: setCurrentPin,
+      new: setNewPin,
+      confirm: setConfirmPin,
+    };
+
+    const getter = {
+      current: [...currentPin],
+      new: [...newPin],
+      confirm: [...confirmPin],
+    };
+
+    const updated = getter[type as keyof typeof getter];
+    updated[index] = value;
+    setter[type as keyof typeof setter](updated);
+
+    // Auto-focus next input
+    if (value && e.target.nextSibling instanceof HTMLElement) {
+      e.target.nextSibling.focus();
     }
   };
 
@@ -195,6 +222,7 @@ const Settings: React.FC = () => {
         "The spark’s gone... like the Wi-Fi.",
         "I need to focus on my own state management.",
         "We’re not component-compatible anymore.",
+        "You're React, I'm Vue — we're just not interoperable.",
         "I ran `npm uninstall us`.",
         "The commit history shows too many issues.",
         "We’re in different branches now.",
@@ -204,7 +232,7 @@ const Settings: React.FC = () => {
       ];
       let i = 0;
       let j = 0;
-      let currentPhrase = [];
+      let currentPhrase: string[] = [];
       let isDeleting = false;
       const type = () => {
         if (i < phrases.length) {
@@ -535,144 +563,100 @@ const Settings: React.FC = () => {
         {/* Change PIN Modal */}
         {showChangePinModal && (
           <div className="fixed inset-0 bg-pink-100/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all">
-            {/* Background Heart Animation */}
-            {/* <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {[...Array(15)].map((_, i) => (
+            {/* Floating hearts animation */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {[...Array(10)].map((_, i) => (
                 <div
                   key={i}
-                  className="absolute text-pink-400 opacity-50 animate-pulse"
+                  className="absolute text-pink-500 opacity-70 animate-pulse"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `${Math.random() * 100}%`,
-                    fontSize: `${Math.random() * 20 + 12}px`,
                     animationDelay: `${Math.random() * 5}s`,
-                    transform: `rotate(${Math.random() * 360}deg)`
                   }}
                 >
                   ❤️
                 </div>
               ))}
-            </div> */}
-
-            {/* Modal Card */}
-            <div className="bg-white p-6 rounded-2xl shadow-2xl border border-pink-300 w-[90%] max-w-sm relative z-10">
-              {/* Floating Heart Icon */}
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-2xl border border-pink-300 max-w-sm w-full relative">
               <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                <svg className="w-12 h-12 text-pink-500 drop-shadow animate-glow" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                <svg className="w-12 h-12 text-pink-500 drop-shadow animate-glow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
               </div>
-
               <h2 className="text-xl font-bold text-center text-pink-600 mt-6 mb-4">Secure Your Love PIN 💖</h2>
-              {error && <p className="text-red-600 text-sm mb-3 text-center">{error}</p>}
-
-              {/* Heart PIN Inputs */}
-              <div className="flex justify-center gap-3 mb-4">
-                {Array(4)
-                  .fill(0)
-                  .map((_, i) => (
-                    <div
-                      key={i}
-                      className="relative w-12 h-12"
-                    >
-                      <svg
-                        className="absolute inset-0 w-full h-full text-pink-300 animate-pulse pointer-events-none"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-
+              {error && <p className="text-red-600 text-sm mb-2 text-center">{error}</p>}
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm text-gray-700 font-medium mb-1">Current PIN</label>
+                  <div className="flex gap-2 justify-center">
+                    {currentPin.map((digit, index) => (
                       <input
-                        type="text"
+                        key={index}
+                        type="password"
+                        value={digit}
+                        onChange={(e) => handleDigitChange(e, index, 'current')}
                         maxLength={1}
-                        inputMode="numeric"
-                        value={currentPin[i] || ""}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "");
-                          if (val) {
-                            const pinArray = currentPin.split("");
-                            pinArray[i] = val;
-                            setCurrentPin(pinArray.join(""));
-                            // Auto-focus next
-                            const nextInput = document.getElementById(`curr-${i + 1}`);
-                            if (nextInput) nextInput.focus();
-                          }
-                        }}
-                        id={`curr-${i}`}
-                        className="absolute inset-0 w-full h-full text-center text-xl bg-transparent text-pink-700 font-bold focus:outline-none"
+                        className="w-10 h-12 text-center text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400"
                       />
-                    </div>
-                  ))}
-              </div>
-
-              <div className="flex justify-center gap-3 mb-6">
-                {Array(4)
-                  .fill(0)
-                  .map((_, i) => (
-                    <div
-                      key={i}
-                      className="relative w-12 h-12"
-                    >
-                      <svg
-                        className="absolute inset-0 w-full h-full text-pink-500 animate-pulse pointer-events-none"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 font-medium mb-1">New PIN</label>
+                  <div className="flex gap-2 justify-center">
+                    {newPin.map((digit, index) => (
                       <input
-                        type="text"
+                        key={index}
+                        type="password"
+                        value={digit}
+                        onChange={(e) => handleDigitChange(e, index, 'new')}
                         maxLength={1}
-                        inputMode="numeric"
-                        value={newPin[i] || ""}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "");
-                          if (val) {
-                            const pinArray = newPin.split("");
-                            pinArray[i] = val;
-                            setNewPin(pinArray.join(""));
-                            // Auto-focus next
-                            const nextInput = document.getElementById(`new-${i + 1}`);
-                            if (nextInput) nextInput.focus();
-                          }
-                        }}
-                        id={`new-${i}`}
-                        className="absolute inset-0 w-full h-full text-center text-xl bg-transparent text-pink-700 font-bold focus:outline-none"
+                        className="w-10 h-12 text-center text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400"
                       />
-                    </div>
-                  ))}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex space-x-2 justify-center">
-                <button
-                  onClick={handleChangePin}
-                  className="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors transform hover:scale-105"
-                >
-                  Change PIN
-                </button>
-                <button
-                  onClick={() => {
-                    setShowChangePinModal(false);
-                    setCurrentPin('');
-                    setNewPin('');
-                    setError('');
-                  }}
-                  className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors transform hover:scale-105"
-                >
-                  Cancel
-                </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 font-medium mb-1">Confirm New PIN</label>
+                  <div className="flex gap-2 justify-center">
+                    {confirmPin.map((digit, index) => (
+                      <input
+                        key={index}
+                        type="password"
+                        value={digit}
+                        onChange={(e) => handleDigitChange(e, index, 'confirm')}
+                        maxLength={1}
+                        className="w-10 h-12 text-center text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400"
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex space-x-2 justify-center mt-4">
+                  <button
+                    onClick={handleChangePin}
+                    className="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors transform hover:scale-105"
+                  >
+                    Change PIN
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowChangePinModal(false);
+                      setCurrentPin(['', '', '', '']);
+                      setNewPin(['', '', '', '']);
+                      setConfirmPin(['', '', '', '']);
+                      setError('');
+                    }}
+                    className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors transform hover:scale-105"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
-
 
         {/* Breakup Confirmation Modal */}
         {showBreakupModal && (
@@ -684,7 +668,7 @@ const Settings: React.FC = () => {
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path d="M16.5 3c-1.74 0-3.41 0.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-2.8 10.29l-2.2 2.2-1.7-1.7 2.2-2.2-2.2-2.2 1.7-1.7 2.2 2.2 2.2-2.2 1.7 1.7-2.2 2.2 2.2 2.2-1.7 1.7-2.2-2.2z" />
+                  <path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-2.8 10.29l-2.2 2.2-1.7-1.7 2.2-2.2-2.2-2.2 1.7-1.7 2.2 2.2 2.2-2.2 1.7 1.7-2.2 2.2 2.2 2.2-1.7 1.7-2.2-2.2z" />
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-red-600 mt-8 mb-2 font-[Poppins]">
@@ -695,7 +679,7 @@ const Settings: React.FC = () => {
               </p>
               <div className="relative mb-4">
                 <textarea
-                  className="w-full p-4 bg-white/80 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent placeholder-red-300 text-red-700 transition-all font-mono"
+                  className="w-full p-4 bg-white/80 border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent placeholder-red-300 text-red-700 transition-all font-mono"
                   rows={4}
                   placeholder={typingEffect}
                   value={breakupReason}
@@ -755,12 +739,15 @@ const Settings: React.FC = () => {
         .animate-slide-in {
           animation: slide-in 0.3s ease-out;
         }
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0) rotate(0deg);
+        @keyframes floatHeart {
+          0% {
+            transform: translateY(0) scale(1);
           }
           50% {
-            transform: translateY(-20px) rotate(10deg);
+            transform: translateY(-30px) scale(1.1);
+          }
+          100% {
+            transform: translateY(0) scale(1);
           }
         }
         @keyframes glow {
@@ -788,7 +775,7 @@ const Settings: React.FC = () => {
           }
         }
         .animate-float {
-          animation: float 5s ease-in-out infinite;
+          animation: floatHeart 5s ease-in-out infinite;
         }
         .animate-glow {
           animation: glow 2s ease-in-out infinite;
