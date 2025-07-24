@@ -286,7 +286,7 @@ const Gallery: React.FC = () => {
       </div>
 
       {/* Header */}
-      <div className="bg-white border-b border-pink-200 p-4">
+      <div className="bg-white border-b border-pink-200 p-4 fixed w-full top-0 left-0 z-40 shadow-sm">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">Our Gallery</h1>
           <label htmlFor="upload-image" className="p-2 bg-pink-600 text-white rounded-full hover:bg-pink-700 cursor-pointer">
@@ -308,7 +308,7 @@ const Gallery: React.FC = () => {
       </div>
 
       {/* Gallery Grid */}
-      <div className="p-4">
+      <div className="p-4 py-28">
         {(isUploading || isConverting) && (
           <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
             <div className="flex items-center justify-center space-x-2">
@@ -475,7 +475,7 @@ const Gallery: React.FC = () => {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes slide-in {
           from {
             opacity: 0;

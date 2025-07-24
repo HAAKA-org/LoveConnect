@@ -47,7 +47,7 @@ const BottomNavigation: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-pink-200/50 border-t border-pink-200 rounded-full w-full max-w-md sm:max-w-lg md:max-w-xl shadow-md backdrop-blur-sm">
+    <nav className="fixed z-40 bottom-4 left-1/2 transform -translate-x-1/2 bg-pink-200/50 border-t border-pink-200 rounded-full w-full max-w-md sm:max-w-lg md:max-w-xl shadow-md backdrop-blur-sm">
       <div className="flex justify-around items-center px-2">
         {navItems.map((item) => (
           <NavLink
