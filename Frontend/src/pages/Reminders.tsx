@@ -218,41 +218,47 @@ const Reminders: React.FC = () => {
     <div className="min-h-screen bg-pink-50">
       {/* Notification Toast */}
       {notification && (
-        <div className="fixed top-6 right-6 z-50 bg-pink-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 animate-fade-in">
-          <Bell className="w-5 h-5 mr-2" />
-          <span>{notification}</span>
+        <div className="fixed top-4 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto z-50 bg-pink-600 text-white px-4 py-3 sm:px-6 rounded-lg shadow-lg flex items-start space-x-3 animate-fade-in max-w-sm sm:max-w-md">
+          <Bell className="w-5 h-5 mt-0.5 flex-shrink-0" />
+          <span className="text-sm sm:text-base flex-1 leading-relaxed">{notification}</span>
           <button
-            className="ml-4 px-2 py-1 bg-white text-pink-600 rounded hover:bg-pink-100"
+            className="px-2 py-1 bg-white text-pink-600 rounded text-xs sm:text-sm hover:bg-pink-100 transition-colors duration-200 flex-shrink-0"
             onClick={() => setNotification(null)}
           >
             Dismiss
           </button>
         </div>
       )}
+
       {/* Header */}
-      <div className="bg-white border-b border-pink-200 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Reminders</h1>
-            <p className="text-sm text-gray-600">
-              {reminders.filter(r => !r.isCompleted).length} pending reminders
-            </p>
+      <div className="bg-white border-b border-pink-200 px-4 py-4 sm:px-6 lg:px-8 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Reminders</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">
+                {reminders.filter(r => !r.isCompleted).length} pending reminder{reminders.filter(r => !r.isCompleted).length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="p-3 sm:p-2 bg-pink-600 text-white rounded-full hover:bg-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 min-w-[48px] min-h-[48px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
+              aria-label="Create new reminder"
+            >
+              <Plus size={20} className="sm:w-5 sm:h-5" />
+            </button>
           </div>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="p-2 bg-pink-600 text-white rounded-full hover:bg-pink-700"
-          >
-            <Plus size={20} />
-          </button>
         </div>
       </div>
 
-      <div className="p-4 max-w-4xl mx-auto">
+      <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 max-w-6xl mx-auto">
         {/* Create Form */}
         {isCreating && (
-          <div className="bg-white rounded-xl p-6 mb-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Create New Reminder</h3>
-            <div className="space-y-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-sm border border-pink-100">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6">
+              {isEditing ? 'Edit Reminder' : 'Create New Reminder'}
+            </h3>
+            <div className="space-y-4 sm:space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Title
@@ -261,7 +267,7 @@ const Reminders: React.FC = () => {
                   type="text"
                   value={newReminder.title || ''}
                   onChange={(e) => setNewReminder(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 sm:px-5 sm:py-3 border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm sm:text-base transition-all duration-200"
                   placeholder="What do you need to remember?"
                 />
               </div>
@@ -273,12 +279,12 @@ const Reminders: React.FC = () => {
                 <textarea
                   value={newReminder.description || ''}
                   onChange={(e) => setNewReminder(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent h-20 resize-none"
+                  className="w-full px-4 py-3 sm:px-5 sm:py-3 border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent h-20 sm:h-24 resize-none text-sm sm:text-base transition-all duration-200"
                   placeholder="Add some details..."
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Date
@@ -287,7 +293,7 @@ const Reminders: React.FC = () => {
                     type="date"
                     value={newReminder.date?.toISOString().split('T')[0] || ''}
                     onChange={(e) => setNewReminder(prev => ({ ...prev, date: new Date(e.target.value) }))}
-                    className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:px-5 sm:py-3 border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm sm:text-base transition-all duration-200"
                   />
                 </div>
 
@@ -299,35 +305,35 @@ const Reminders: React.FC = () => {
                     type="time"
                     value={newReminder.time || ''}
                     onChange={(e) => setNewReminder(prev => ({ ...prev, time: e.target.value }))}
-                    className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:px-5 sm:py-3 border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm sm:text-base transition-all duration-200"
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2 lg:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Priority
                   </label>
                   <select
                     value={newReminder.priority || 'medium'}
                     onChange={(e) => setNewReminder(prev => ({ ...prev, priority: e.target.value as 'low' | 'medium' | 'high' }))}
-                    className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:px-5 sm:py-3 border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm sm:text-base transition-all duration-200"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="low">Low Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="high">High Priority</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <input
                   type="checkbox"
                   id="isRecurring"
                   checked={newReminder.isRecurring || false}
                   onChange={(e) => setNewReminder(prev => ({ ...prev, isRecurring: e.target.checked }))}
-                  className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
+                  className="w-5 h-5 text-pink-600 rounded focus:ring-pink-500 border-pink-300"
                 />
-                <label htmlFor="isRecurring" className="text-sm text-gray-700">
+                <label htmlFor="isRecurring" className="text-sm sm:text-base text-gray-700 font-medium">
                   Recurring reminder
                 </label>
               </div>
@@ -335,12 +341,12 @@ const Reminders: React.FC = () => {
               {newReminder.isRecurring && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Repeat
+                    Repeat Frequency
                   </label>
                   <select
                     value={newReminder.recurringType || 'daily'}
                     onChange={(e) => setNewReminder(prev => ({ ...prev, recurringType: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly' }))}
-                    className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:px-5 sm:py-3 border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm sm:text-base transition-all duration-200"
                   >
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
@@ -350,16 +356,18 @@ const Reminders: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 pt-2">
                 <button
                   onClick={handleCreateReminder}
-                  className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700"
+                  className="px-6 py-3 sm:px-8 sm:py-3 bg-pink-600 text-white rounded-xl hover:bg-pink-700 font-medium transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] min-h-[48px] flex items-center justify-center"
                 >
-                  Create Reminder
+                  {isEditing ? 'Update Reminder' : 'Create Reminder'}
                 </button>
                 <button
                   onClick={() => {
                     setIsCreating(false);
+                    setIsEditing(false);
+                    setEditingReminder(null);
                     setNewReminder({
                       title: '',
                       description: '',
@@ -370,7 +378,7 @@ const Reminders: React.FC = () => {
                       priority: 'medium'
                     });
                   }}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                  className="px-6 py-3 sm:px-8 sm:py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 font-medium transition-all duration-200 shadow-sm hover:shadow-md min-h-[48px] flex items-center justify-center"
                 >
                   Cancel
                 </button>
@@ -380,17 +388,19 @@ const Reminders: React.FC = () => {
         )}
 
         {/* Reminders List */}
-        <div className="space-y-4">
+        <div className="space-y-4 sm:space-y-6">
           {sortedReminders.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Bell className="w-8 h-8 text-pink-600" />
+            <div className="text-center py-8 sm:py-12">
+              <div className="bg-pink-100 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <Bell className="w-8 h-8 sm:w-10 sm:h-10 text-pink-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">No reminders yet</h3>
-              <p className="text-gray-600 mb-4">Create your first reminder to stay organized!</p>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No reminders yet</h3>
+              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 max-w-md mx-auto leading-relaxed">
+                Create your first reminder to stay organized and never miss important moments!
+              </p>
               <button
                 onClick={() => setIsCreating(true)}
-                className="bg-pink-600 text-white px-6 py-2 rounded-lg hover:bg-pink-700"
+                className="bg-pink-600 text-white px-6 py-3 sm:px-8 sm:py-3 rounded-xl hover:bg-pink-700 font-medium transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] min-h-[48px]"
               >
                 Create First Reminder
               </button>
@@ -399,58 +409,68 @@ const Reminders: React.FC = () => {
             sortedReminders.map((reminder) => (
               <div
                 key={reminder.id}
-                className={`bg-white rounded-xl p-6 shadow-sm border-l-4 ${reminder.isCompleted ? 'border-green-500 opacity-75' : 'border-pink-500'
-                  }`}
+                className={`bg-white rounded-xl p-4 sm:p-6 shadow-sm border-l-4 transition-all duration-200 hover:shadow-md ${
+                  reminder.isCompleted ? 'border-green-500 opacity-75' : 'border-pink-500'
+                }`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
+                <div className="flex items-start justify-between space-x-3 sm:space-x-4">
+                  <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
                     <button
                       onClick={() => toggleComplete(reminder.id)}
-                      className={`mt-1 p-2 rounded-full ${reminder.isCompleted
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-pink-100 text-pink-600 hover:bg-pink-200'
-                        }`}
+                      className={`mt-1 p-2 sm:p-2.5 rounded-full transition-all duration-200 flex-shrink-0 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center ${
+                        reminder.isCompleted
+                          ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                          : 'bg-pink-100 text-pink-600 hover:bg-pink-200 transform hover:scale-105'
+                      }`}
+                      aria-label={reminder.isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
                     >
-                      <Check size={16} />
+                      <Check size={16} className="sm:w-5 sm:h-5" />
                     </button>
 
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className={`font-semibold ${reminder.isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
-                          }`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2 sm:mb-3">
+                        <h3 className={`font-semibold text-sm sm:text-base leading-tight ${
+                          reminder.isCompleted ? 'text-gray-500 line-through' : 'text-gray-800'
+                        }`}>
                           {reminder.title}
                         </h3>
-                        <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(reminder.priority)}`}>
+                        <span className={`text-xs px-2 py-1 rounded-full border font-medium w-fit ${getPriorityColor(reminder.priority)}`}>
                           {reminder.priority}
                         </span>
                       </div>
 
-                      <p className={`text-sm mb-3 ${reminder.isCompleted ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
+                      <p className={`text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed ${
+                        reminder.isCompleted ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         {reminder.description}
                       </p>
 
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
-                          <Calendar size={14} />
-                          <span>{formatDate(reminder.date)}</span>
+                          <Calendar size={12} className="sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                          <span className="font-medium">{formatDate(reminder.date)}</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                          <Clock size={14} />
+                          <Clock size={12} className="sm:w-3.5 sm:h-3.5 flex-shrink-0" />
                           <span>{reminder.time}</span>
                         </div>
                         {reminder.isRecurring && (
                           <div className="flex items-center space-x-1">
-                            <Repeat size={14} />
+                            <Repeat size={12} className="sm:w-3.5 sm:h-3.5 flex-shrink-0" />
                             <span className="capitalize">{reminder.recurringType}</span>
                           </div>
                         )}
-                        <span>• {reminder.createdBy}</span>
+                        <span className="hidden sm:inline">• {reminder.createdBy}</span>
+                      </div>
+                      
+                      {/* Mobile creator info */}
+                      <div className="sm:hidden mt-2 text-xs text-gray-500">
+                        Created by {reminder.createdBy}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 flex-shrink-0">
                     <button
                       onClick={() => {
                         setIsCreating(true);
@@ -461,15 +481,17 @@ const Reminders: React.FC = () => {
                           date: new Date(reminder.date)
                         });
                       }}
-                      className="p-2 text-gray-400 hover:text-pink-600 rounded-lg"
+                      className="p-2 sm:p-2.5 text-gray-400 hover:text-pink-600 rounded-lg hover:bg-pink-50 transition-all duration-200 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
+                      aria-label="Edit reminder"
                     >
-                      <Edit3 size={16} />
+                      <Edit3 size={14} className="sm:w-4 sm:h-4" />
                     </button>
                     <button
                       onClick={() => deleteReminder(reminder.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 rounded-lg"
+                      className="p-2 sm:p-2.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200 min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
+                      aria-label="Delete reminder"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} className="sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 </div>
