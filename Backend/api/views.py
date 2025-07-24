@@ -73,16 +73,24 @@ def login(request):
             if not bcrypt.checkpw(pin.encode('utf-8'), stored_hashed_pin):
                 return JsonResponse({'error': 'Invalid PIN'}, status=401)
 
-            # ⛔ Block login if not paired
+            # Block login if not paired
             if not user.get('isPaired') or not user.get('pairedWith'):
                 return JsonResponse({'error': 'You must pair with your partner before using chat.'}, status=403)
 
+            # ✅ New logic: Check relationship status
+            if user.get('relationshipStatus') == 'break':
+                reason = user.get('breakupReason', 'No reason provided.')
+                return JsonResponse({
+                    'error': f"Your partner has taken a break 💔: {reason}"
+                }, status=403)
+
+            # Generate token
             payload = {
-                    '_id': str(user['_id']),
-                    'email': user['email'],
-                    'name': user['name'],
-                    'partnerCode': user.get('partnerCode'),
-                    'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                '_id': str(user['_id']),
+                'email': user['email'],
+                'name': user['name'],
+                'partnerCode': user.get('partnerCode'),
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
             }
             token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -100,6 +108,110 @@ def login(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def request_patchup(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+    try:
+        # Step 1: Try to get email from JWT token
+        token = request.COOKIES.get('loveconnect')
+        user_email = None
+
+        if token:
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+        else:
+            # Step 2: Fallback to email from POST body
+            data = json.loads(request.body)
+            user_email = data.get('email')
+            if not user_email:
+                return JsonResponse({'error': 'Missing token or email'}, status=401)
+
+        # Step 3: Lookup user and verify breakup status
+        user = users_collection.find_one({'email': user_email})
+        if not user or user.get('relationshipStatus') != 'break':
+            return JsonResponse({'error': 'Not in breakup state'}, status=400)
+
+        partner_email = user.get('pairedWith')
+        if not partner_email:
+            return JsonResponse({'error': 'No partner found'}, status=400)
+
+        partner = users_collection.find_one({'email': partner_email})
+        if not partner:
+            return JsonResponse({'error': 'Partner not found'}, status=404)
+
+        # Step 4: Mark patch request from this user
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {'patchRequested': True}}
+        )
+
+        # Step 5: If partner also requested → complete patch-up
+        if partner.get('patchRequested'):
+            users_collection.update_many(
+                {'email': {'$in': [user_email, partner_email]}},
+                {'$set': {
+                    'relationshipStatus': 'active',
+                    'patchRequested': False,
+                    'breakupReason': None
+                }}
+            )
+            return JsonResponse({'message': 'Patch-up complete! 💖'}, status=200)
+
+        # Step 6: Else just wait
+        return JsonResponse({'message': 'Patch-up request sent. Waiting for your partner 🤝'}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+def breakup_status(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Only GET allowed'}, status=405)
+
+    try:
+        token = request.COOKIES.get('loveconnect')
+        user_email = None
+
+        if token:
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+        else:
+            # fallback: get email from GET query string (unauthenticated breakup view only)
+            user_email = request.GET.get('email')
+            if not user_email:
+                return JsonResponse({'error': 'Missing token or email'}, status=401)
+
+        user = users_collection.find_one({'email': user_email})
+        if not user:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        if user.get('relationshipStatus') != 'break':
+            return JsonResponse({'error': 'Not in breakup state'}, status=400)
+
+        partner_email = user.get('pairedWith')
+        partner = users_collection.find_one({'email': partner_email}) if partner_email else None
+
+        return JsonResponse({
+            'breakupReason': user.get('breakupReason'),
+            'youRequested': user.get('patchRequested', False),
+            'partnerRequested': partner.get('patchRequested', False) if partner else False
+        }, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 def pair_partner(request):
@@ -270,7 +382,8 @@ def get_user(request):
                 'isPaired': user.get('isPaired', False),
                 'partnerCode': user.get('partnerCode'),
                 'pairedWith': user.get('pairedWith'),
-                'partnerName': partner_name
+                'partnerName': partner_name,
+                'relationshipStatus': user.get('relationshipStatus', 'active')
             }
 
             return JsonResponse(user_data, status=200)
@@ -279,6 +392,181 @@ def get_user(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only GET method allowed'}, status=405)
+
+@csrf_exempt
+def update_profile(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            data = json.loads(request.body)
+            new_name = data.get('name')
+
+            if not new_name or len(new_name.strip()) < 2:
+                return JsonResponse({'error': 'Name must be at least 2 characters'}, status=400)
+
+            result = users_collection.update_one(
+                {'email': user_email},
+                {'$set': {'name': new_name.strip()}}
+            )
+
+            if result.modified_count == 1:
+                return JsonResponse({'message': 'Profile updated successfully'}, status=200)
+            else:
+                return JsonResponse({'message': 'No changes made'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def change_pin(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            data = json.loads(request.body)
+            old_pin = data.get('oldPin')
+            new_pin = data.get('newPin')
+
+            if not old_pin or not new_pin:
+                return JsonResponse({'error': 'Both old and new PIN are required'}, status=400)
+
+            user = users_collection.find_one({'email': user_email})
+            if not user:
+                return JsonResponse({'error': 'User not found'}, status=404)
+
+            # Verify old PIN
+            if not bcrypt.checkpw(old_pin.encode('utf-8'), user['pin'].encode('utf-8')):
+                return JsonResponse({'error': 'Old PIN is incorrect'}, status=403)
+
+            # Hash and store new PIN
+            hashed_new_pin = bcrypt.hashpw(new_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            users_collection.update_one({'email': user_email}, {'$set': {'pin': hashed_new_pin}})
+
+            return JsonResponse({'message': 'PIN changed successfully'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def update_relationship_status(request):
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Only PATCH method allowed'}, status=405)
+
+    try:
+        token = request.COOKIES.get('loveconnect')
+        if not token:
+            return JsonResponse({'error': 'Missing token'}, status=401)
+
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_email = payload.get('email')
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({'error': 'Token expired'}, status=401)
+        except jwt.InvalidTokenError:
+            return JsonResponse({'error': 'Invalid token'}, status=401)
+
+        data = json.loads(request.body)
+        new_status = data.get('status')
+
+        if new_status not in ['active', 'break', 'pending_patchup']:
+            return JsonResponse({'error': 'Invalid status value'}, status=400)
+
+        user = users_collection.find_one({'email': user_email})
+        if not user:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        partner_email = user.get('pairedWith')
+        if not partner_email:
+            return JsonResponse({'error': 'No partner linked'}, status=400)
+
+        # Update both user and partner
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {'relationshipStatus': new_status}}
+        )
+
+        users_collection.update_one(
+            {'email': partner_email},
+            {'$set': {'relationshipStatus': new_status}}
+        )
+
+        return JsonResponse({'message': f'Relationship status updated to "{new_status}"'}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+def breakup(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+    
+    try:
+        token = request.COOKIES.get('loveconnect')
+        if not token:
+            return JsonResponse({'error': 'Missing token'}, status=401)
+        
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_email = payload.get('email')
+        data = json.loads(request.body)
+        reason = data.get('reason', '').strip()
+
+        if not reason:
+            return JsonResponse({'error': 'Reason is required'}, status=400)
+
+        user = users_collection.find_one({'email': user_email})
+        if not user:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        partner_email = user.get('pairedWith')
+        if not partner_email:
+            return JsonResponse({'error': 'No partner paired'}, status=400)
+
+        # Save breakup reason and status for both
+        users_collection.update_one(
+            {'email': user_email},
+            {'$set': {
+                'relationshipStatus': 'break',
+                'breakupReason': reason
+            }}
+        )
+
+        users_collection.update_one(
+            {'email': partner_email},
+            {'$set': {
+                'relationshipStatus': 'break',
+                'breakupReason': reason
+            }}
+        )
+
+        return JsonResponse({'message': 'Breakup reason saved'}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 def logout(request):

@@ -8,6 +8,10 @@ const Login: React.FC = () => {
   const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isBreakup, setIsBreakup] = useState(false);
+  const [breakupReason, setBreakupReason] = useState('');
+  const [youRequested, setYouRequested] = useState(false);
+  const [partnerRequested, setPartnerRequested] = useState(false);
 
   const navigate = useNavigate();
 
@@ -23,7 +27,14 @@ const Login: React.FC = () => {
     const data = await res.json();
 
     if (res.status === 403) {
-      // User needs to pair with partner
+      if (data.error?.includes('Your partner has taken a break')) {
+        // Trigger breakup flow
+        setIsBreakup(true);
+        setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
+        await fetchBreakupStatus(email);
+        return false;
+      }
+
       navigate('/pairing', { state: { email } });
       return false;
     }
@@ -33,6 +44,44 @@ const Login: React.FC = () => {
     }
 
     throw new Error(data.error || 'Login failed');
+  };
+
+  const fetchBreakupStatus = async (email: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/loveconnect/api/breakup-status?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setYouRequested(data.youRequested);
+        setPartnerRequested(data.partnerRequested);
+      }
+    } catch (e) {
+      console.error('Breakup status fetch failed');
+    }
+  };
+
+  const sendPatchupRequest = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/loveconnect/api/request-patchup/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email }) // ✅ make sure email is passed
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setYouRequested(true);
+        setError(data.message || 'Patch-up request sent');
+      } else {
+        setError(data.error || 'Request failed');
+      }
+    } catch (e) {
+      setError('Network error');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,6 +180,36 @@ const Login: React.FC = () => {
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
+          {isBreakup && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm space-y-2">
+              <p><strong>Reason:</strong> {breakupReason}</p>
+
+              {!youRequested && (
+                <>
+                  {partnerRequested && (
+                    <p className="text-xs text-pink-600 font-medium mb-1">
+                      Your partner is ready to patch things up 💗
+                    </p>
+                  )}
+                  <button
+                    onClick={sendPatchupRequest}
+                    type="button"
+                    className="mt-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700"
+                  >
+                    Send Patch-Up Request 💌
+                  </button>
+                </>
+              )}
+
+              {youRequested && !partnerRequested && (
+                <p className="text-xs text-gray-500 mt-1">Waiting for your partner to agree... 💭</p>
+              )}
+
+              {youRequested && partnerRequested && (
+                <p className="text-green-600 font-semibold">You both want to patch up! Please try logging in again 💖</p>
+              )}
+            </div>
+          )}
         </form>
 
         {/* Footer */}
