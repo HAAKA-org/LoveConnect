@@ -243,9 +243,9 @@ const toggleFavorite = async (id: string) => {
       </div>
 
       {/* Sidebar - Hidden on mobile when note is selected */}
-      <div className={`w-full md:w-1/3 bg-white border-r border-pink-200 flex flex-col ${selectedNote ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`w-full md:w-1/3 border-r border-pink-200 flex flex-col ${selectedNote ? 'hidden md:flex' : 'flex'}`}>
         {/* Header */}
-        <div className="p-4 border-b border-pink-200">
+        <div className="p-4 border-b border-pink-200 fixed w-full top-0 left-0 z-40 bg-white shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-gray-800">Our Notes</h1>
             <button
@@ -282,7 +282,7 @@ const toggleFavorite = async (id: string) => {
               </button>
             </div>
           ) : (
-            <div className="space-y-2 p-4">
+            <div className="space-y-4 py-36 p-4">
               {filteredNotes.map((note) => (
                 <div
                   key={note.id}

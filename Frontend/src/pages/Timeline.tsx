@@ -150,7 +150,7 @@ const Timeline: React.FC = () => {
   const getRelativeTime = (date: Date) => {
     const now = new Date();
     const diffInMonths = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
-    
+
     if (diffInMonths === 0) {
       return 'This month';
     } else if (diffInMonths === 1) {
@@ -166,7 +166,7 @@ const Timeline: React.FC = () => {
   return (
     <div className="min-h-screen bg-pink-50">
       {/* Header */}
-      <div className="bg-white border-b border-pink-200 p-4">
+      <div className="bg-white border-b border-pink-200 p-4 fixed w-full top-0 left-0 z-40 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-800">Our Timeline</h1>
@@ -182,7 +182,7 @@ const Timeline: React.FC = () => {
       </div>
 
       {/* Timeline */}
-      <div className="p-4 max-w-4xl mx-auto">
+      <div className="p-4 max-w-4xl mx-auto pt-24">
         {/* Create/Edit Form */}
         {(isCreating || editingEvent) && (
           <div className="bg-white rounded-xl p-6 mb-8 shadow-sm">
@@ -202,7 +202,7 @@ const Timeline: React.FC = () => {
                   placeholder="What happened?"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
@@ -214,7 +214,7 @@ const Timeline: React.FC = () => {
                   placeholder="Tell the story..."
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -227,7 +227,7 @@ const Timeline: React.FC = () => {
                     className="w-full px-4 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Location (optional)
@@ -241,7 +241,7 @@ const Timeline: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -254,7 +254,7 @@ const Timeline: React.FC = () => {
                   Mark as special milestone
                 </label>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <button
                   onClick={editingEvent ? handleSaveEdit : handleCreateEvent}
@@ -293,9 +293,9 @@ const Timeline: React.FC = () => {
               {index < sortedEvents.length - 1 && (
                 <div className="absolute left-6 top-12 w-0.5 h-full bg-pink-200 -z-10"></div>
               )}
-              
+
               {/* Event */}
-              <div className="flex items-start space-x-4">
+              <div className="flex flex-col md:flex-row items-start space-x-0 md:space-x-4 space-y-4 md:space-y-0">
                 {/* Timeline dot */}
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
                   event.isSpecial ? 'bg-pink-600' : 'bg-pink-300'
@@ -306,13 +306,13 @@ const Timeline: React.FC = () => {
                     <Calendar className="w-6 h-6 text-white" />
                   )}
                 </div>
-                
+
                 {/* Event content */}
-                <div className="flex-1 bg-white rounded-xl p-6 shadow-sm">
-                  <div className="flex items-start justify-between mb-4">
+                <div className="flex-1 bg-white rounded-xl p-6 shadow-sm w-full md:w-auto">
+                  <div className="flex flex-col md:flex-row items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-800 mb-1">{event.title}</h3>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <div className="flex flex-wrap items-center space-x-2 text-sm text-gray-600">
                         <span>{formatDate(event.date)}</span>
                         <span>•</span>
                         <span>{getRelativeTime(event.date)}</span>
@@ -327,7 +327,7 @@ const Timeline: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 mt-2 md:mt-0">
                       <button
                         onClick={() => handleEditEvent(event)}
                         className="p-2 text-gray-400 hover:text-pink-600 rounded-lg"
@@ -342,9 +342,9 @@ const Timeline: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  
+
                   <p className="text-gray-700 mb-4">{event.description}</p>
-                  
+
                   {event.imageUrl && (
                     <img
                       src={event.imageUrl}
@@ -352,11 +352,11 @@ const Timeline: React.FC = () => {
                       className="w-full max-w-md h-48 object-cover rounded-lg"
                     />
                   )}
-                  
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+
+                  <div className="flex flex-col md:flex-row items-center justify-between mt-4 pt-4 border-t border-gray-100">
                     <span className="text-sm text-gray-500">Added by {event.createdBy}</span>
                     {event.isSpecial && (
-                      <span className="text-xs px-2 py-1 bg-pink-100 text-pink-600 rounded-full">
+                      <span className="text-xs px-2 py-1 bg-pink-100 text-pink-600 rounded-full mt-2 md:mt-0">
                         Special Milestone
                       </span>
                     )}
@@ -366,7 +366,7 @@ const Timeline: React.FC = () => {
             </div>
           ))}
         </div>
-        
+
         {events.length === 0 && (
           <div className="text-center py-12">
             <div className="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
