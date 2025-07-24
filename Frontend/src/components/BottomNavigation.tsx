@@ -40,7 +40,7 @@ const BottomNavigation: React.FC = () => {
     { to: '/dashboard/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/dashboard/gallery', icon: Images, label: 'Gallery' },
     { to: '/dashboard/notes', icon: FileText, label: 'Notes' },
-    { to: '/dashboard/timeline', icon: Clock, label: 'Timeline' },
+    // { to: '/dashboard/timeline', icon: Clock, label: 'Timeline' },
     { to: '/dashboard/reminders', icon: Bell, label: 'Reminders' },
     { to: '/dashboard/extras', icon: Heart, label: 'Extras' },
     { to: '/dashboard/settings', icon: Settings, label: 'Settings' }
