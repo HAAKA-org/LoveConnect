@@ -14,30 +14,166 @@ import {
   LogOut,
   Shield,
   Heart,
-  Camera
+  Camera,
+  AlertCircle, 
+  CheckCircle
 } from 'lucide-react';
+
+type ToastType = 'success' | 'error' | 'info';
+
+interface ToastMessage {
+  id: string;
+  message: string;
+  type: ToastType;
+}
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [showChangePinModal, setShowChangePinModal] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || '');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [relationshipStatus, setRelationshipStatus] = useState(user?.relationshipStatus || 'active');
+  const [showBreakModal, setShowBreakModal] = useState(false);
+  const [showBreakupModal, setShowBreakupModal] = useState(false);
+  const [breakupReason, setBreakupReason] = useState('');
   const [notifications, setNotifications] = useState({
     messages: true,
     reminders: true,
     timeline: false
   });
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  const showToast = (message: string, type: ToastType = 'info') => {
+  const id = Date.now().toString();
+  const newToast = { id, message, type };
+  setToasts(prev => [...prev, newToast]);
 
-  const handleSaveProfile = () => {
-    // In a real app, this would update the user profile
+  setTimeout(() => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, 4000);
+};
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+    const handleBreakupSignOut = async () => {
+      try {
+        if (!breakupReason.trim()) {
+          showToast('Please provide a reason for the breakup 💔', 'error');
+          return;
+        }
+
+        // 1. Update status to "break" + reason
+        const statusRes = await fetch('http://localhost:8000/loveconnect/api/breakup/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ reason: breakupReason })
+        });
+
+        const statusData = await statusRes.json();
+        if (!statusRes.ok) {
+          showToast(statusData.error || 'Failed to update breakup status', 'error');
+          return;
+        }
+
+        // 2. Logout
+        const res = await fetch('http://localhost:8000/loveconnect/api/logout/', {
+          method: 'POST',
+          credentials: 'include'
+        });
+
+        if (res.ok) {
+          showToast('Breakup recorded 💔 Logging out...', 'info');
+          setTimeout(() => {
+            logout();
+            navigate('/');
+          }, 1000);
+        } else {
+          showToast('Logout failed. Try again.', 'error');
+        }
+      } catch (err) {
+        showToast('Something went wrong. Try again.', 'error');
+      }
+    };
+
+  const handleSaveProfile = async () => {
+    await fetch('http://localhost:8000/loveconnect/api/update-profile/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ name: editedName }),
+    });
     setIsEditing(false);
   };
+
+  const handleChangePin = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/loveconnect/api/change-pin/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          oldPin: currentPin,
+          newPin: newPin,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to change PIN');
+      }
+
+      setShowChangePinModal(false);
+      setCurrentPin('');
+      setNewPin('');
+      setError('');
+      showToast('PIN changed successfully! 💕', 'success');
+      showToast('Profile updated! ✨', 'success');
+    } catch (err) {
+      showToast(
+        typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string'
+          ? (err as any).message
+          : 'Failed to change PIN',
+        'error'
+      );
+
+    }
+  };
+
+  const handleRelationshipStatusChange = async (newStatus: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/loveconnect/api/relationship-status', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setRelationshipStatus(newStatus);
+        showToast(`Relationship status updated to "${newStatus}" 💔`, 'success');
+        setShowBreakModal(false);
+      } else {
+        showToast(data.error || 'Failed to update status', 'error');
+      }
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+    }
+  };
+
 
   const settingSections = [
     {
@@ -52,9 +188,9 @@ const Settings: React.FC = () => {
         {
           icon: Lock,
           label: 'Change PIN',
-          action: () => {},
-          color: 'bg-purple-100 text-purple-600'
-        }
+          action: () => setShowChangePinModal(true),
+          color: 'bg-purple-100 text-purple-600',
+        },
       ]
     },
     {
@@ -88,7 +224,7 @@ const Settings: React.FC = () => {
         {
           icon: Heart,
           label: 'Relationship Status',
-          action: () => {},
+          action: () => setShowBreakModal(true),
           color: 'bg-pink-100 text-pink-600'
         }
       ]
@@ -99,7 +235,7 @@ const Settings: React.FC = () => {
         {
           icon: LogOut,
           label: 'Sign Out',
-          action: handleLogout,
+          action: () => setShowBreakupModal(true), 
           color: 'bg-red-100 text-red-600'
         },
         {
@@ -115,6 +251,52 @@ const Settings: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-pink-50">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`
+              flex items-center gap-3 p-4 rounded-xl shadow-lg backdrop-blur-sm
+              border-l-4 min-w-80 max-w-96 transform transition-all duration-300 ease-in-out
+              animate-slide-in
+              ${toast.type === 'success'
+                ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-400 text-pink-800'
+                : toast.type === 'error'
+                ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-400 text-red-800'
+                : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-400 text-purple-800'
+              }
+            `}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === 'success' && (
+                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center">
+                  <CheckCircle size={18} className="text-pink-600" />
+                </div>
+              )}
+              {toast.type === 'error' && (
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle size={18} className="text-red-600" />
+                </div>
+              )}
+              {toast.type === 'info' && (
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Heart size={18} className="text-purple-600" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium leading-5">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="flex-shrink-0 p-1 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
       {/* Header */}
       <div className="bg-white border-b border-pink-200 p-4">
         <h1 className="text-xl font-bold text-gray-800">Settings</h1>
@@ -195,6 +377,11 @@ const Settings: React.FC = () => {
                       Connected with {user.partnerName}
                     </p>
                   )}
+                  <p className="text-sm text-pink-600 mt-1">
+                    Status: {user?.relationshipStatus === 'break' ? 'Taking a break 💔' :
+                            user?.relationshipStatus === 'pending_patchup' ? 'Patch-up pending 🤝' :
+                            'In love ❤️'}
+                  </p>
                 </div>
               )}
             </div>
@@ -294,7 +481,86 @@ const Settings: React.FC = () => {
             </div>
           </div>
         </div>
+        
+        {/* Change PIN Modal */}
+      {showChangePinModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Change PIN</h2>
+            {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+            <div className="space-y-3">
+              <input
+                type="password"
+                value={currentPin}
+                onChange={(e) => setCurrentPin(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="Current PIN"
+              />
+              <input
+                type="password"
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="New PIN"
+              />
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleChangePin}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Change PIN
+                </button>
+                <button
+                  onClick={() => {
+                    setShowChangePinModal(false);
+                    setCurrentPin('');
+                    setNewPin('');
+                    setError('');
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {showBreakupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg text-center">
+            <h2 className="text-lg font-bold text-pink-700 mb-2">Breakup Confirmation 💔</h2>
+            <p className="text-sm text-gray-600 mb-4">Tell us why you're taking a break. Your partner will see this message.</p>
+            <textarea
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+              rows={3}
+              placeholder="e.g., Need some space to think..."
+              value={breakupReason}
+              onChange={(e) => setBreakupReason(e.target.value)}
+            />
+            <div className="flex justify-center gap-3 mt-4">
+              <button
+                onClick={handleBreakupSignOut}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              >
+                Confirm Breakup
+              </button>
+              <button
+                onClick={() => {
+                  setShowBreakupModal(false);
+                  setBreakupReason('');
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
         {/* App Info */}
         <div className="bg-white rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">About</h3>
@@ -307,6 +573,21 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+      <style>{`
+        @keyframes slide-in {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
