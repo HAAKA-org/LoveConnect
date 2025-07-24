@@ -9,6 +9,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from pymongo import MongoClient
 import re
+from bson import ObjectId
+import json
 
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
@@ -113,3 +115,109 @@ def get_gallery(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only GET allowed'}, status=405)
+
+@csrf_exempt
+def toggle_like(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
+            user_email = payload['email']
+
+            data = json.loads(request.body)
+            photo_id = data.get('id')
+
+            if not photo_id:
+                return JsonResponse({'error': 'Missing photo ID'}, status=400)
+
+            photo = db['gallery'].find_one({'_id': ObjectId(photo_id)})
+            if not photo:
+                return JsonResponse({'error': 'Photo not found'}, status=404)
+
+            already_liked = user_email in photo.get('likedBy', [])
+
+            update_op = (
+                {'$pull': {'likedBy': user_email}} if already_liked
+                else {'$addToSet': {'likedBy': user_email}}
+            )
+
+            db['gallery'].update_one({'_id': ObjectId(photo_id)}, update_op)
+
+            return JsonResponse({
+                'message': 'Like toggled',
+                'liked': not already_liked
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+@csrf_exempt
+def delete_photo(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+            payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
+
+            data = json.loads(request.body)
+            photo_id = data.get('id')
+            photo_url = data.get('url')
+
+            if not photo_id or not photo_url:
+                return JsonResponse({'error': 'Missing ID or URL'}, status=400)
+
+            # extract filename from URL
+            key = photo_url.split('/')[-1]
+
+            # delete from R2
+            session = boto3.session.Session()
+            s3 = session.client(
+                service_name='s3',
+                aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("R2_SECRET_ACCESS_KEY"),
+                endpoint_url=os.getenv("R2_ENDPOINT"),
+                region_name=os.getenv("R2_REGION", "auto")
+            )
+            s3.delete_object(Bucket=os.getenv("R2_BUCKET_NAME"), Key=key)
+
+            # delete from DB
+            db['gallery'].delete_one({'_id': ObjectId(photo_id)})
+            return JsonResponse({'message': 'Photo deleted'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+@csrf_exempt
+def edit_photo_caption(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+            payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
+
+            data = json.loads(request.body)
+            photo_id = data.get('id')
+            new_caption = data.get('caption')
+
+            if not photo_id or not new_caption:
+                return JsonResponse({'error': 'Missing ID or caption'}, status=400)
+
+            db['gallery'].update_one(
+                {'_id': ObjectId(photo_id)},
+                {'$set': {'caption': new_caption}}
+            )
+            return JsonResponse({'message': 'Caption updated'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST allowed'}, status=405)

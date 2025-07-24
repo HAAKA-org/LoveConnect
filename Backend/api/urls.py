@@ -19,9 +19,14 @@ urlpatterns = [
     path('request-patchup/', request_patchup, name="request_patchup"),
     path('send-message/', send_message, name="send_message"),
     path('get-messages/', get_messages, name="get_messages"),
+
+    # Gallery URLs
     path('upload-photo/', upload_photo, name="upload_photo"),
     path('gallery/', get_gallery, name="get_gallery"),
-
+    path('edit-caption/', edit_photo_caption, name="edit_photo_caption"),
+    path('delete-photo/', delete_photo, name="delete_photo"),
+    path('toggle-like/', toggle_like, name="toggle_like"),
+    
     #Notes URLs
     path('notes/', get_notes, name="get_notes"),
     path('notes/create/', create_note, name="create_note"),
