@@ -71,7 +71,7 @@ const Login: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email }) // ✅ make sure email is passed
+        body: JSON.stringify({ email })
       });
 
       const data = await res.json();
@@ -221,7 +221,7 @@ const Login: React.FC = () => {
               }
             }}
             onError={() => setError('Google sign-in failed')}
-            width="300"
+            width="386"
           />
 
           {isBreakup && (

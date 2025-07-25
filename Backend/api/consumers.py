@@ -18,7 +18,6 @@ users_collection = db['users']
 JWT_SECRET = 'loveconnect'
 JWT_ALGORITHM = 'HS256'
 
-
 class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
@@ -54,8 +53,48 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         await self.accept()
 
-        # **NEW: Send previous messages when user connects**
+        # Send previous messages when user connects
         await self.send_previous_messages()
+
+    async def mark_messages_as_seen(self):
+        """Mark all messages not sent by this user as seen"""
+        try:
+            # Update messages where senderEmail is not the current user
+            result = await sync_to_async(db['conversations'].update_one)(
+                {
+                    'pairCode': self.pair_code
+                },
+                {
+                    '$set': {
+                        'messages.$[msg].seen': True,
+                        'lastMessageAt': datetime.utcnow().isoformat()
+                    }
+                },
+                array_filters=[{
+                    'msg.senderEmail': {'$ne': self.user_email},
+                    'msg.seen': False
+                }]
+            )
+
+
+            # If messages were updated, broadcast the updated messages
+            if result.modified_count > 0:
+                conversation = await sync_to_async(db['conversations'].find_one)(
+                    {'pairCode': self.pair_code}
+                )
+                if conversation and 'messages' in conversation:
+                    for message in conversation['messages']:
+                        if message.get('seen', False):
+                            await self.channel_layer.group_send(
+                                self.room_group_name,
+                                {
+                                    'type': 'seen_update',
+                                    'message_id': str(message.get('_id', '')),
+                                    'seen': True
+                                }
+                            )
+        except Exception as e:
+            print(f"Error marking messages as seen: {e}")
 
     async def send_previous_messages(self):
         """Send all previous messages from this conversation to the newly connected user"""
@@ -74,7 +113,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         'type': message['type'],
                         'content': message['content'],
                         'timestamp': message['timestamp'],
-                        'isHistorical': True  # Flag to indicate this is a previous message
+                        'seen': message.get('seen', False),
+                        'isHistorical': True
                     }))
         except Exception as e:
             print(f"Error sending previous messages: {e}")
@@ -87,31 +127,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        content = data['content']
         msg_type = data.get('type', 'text')
+
+        if msg_type == 'mark_seen':
+            await self.mark_messages_as_seen()
+            return
+
+        content = data['content']
 
         # Create message object
         message = {
             'senderEmail': self.user_email,
             'type': msg_type,
             'content': content,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'seen': False
         }
 
         # Update or create conversation document for this pair
-        await sync_to_async(db['conversations'].update_one)(
-            {'pairCode': self.pair_code},  # Filter by pair code
+        result = await sync_to_async(db['conversations'].update_one)(
+            {'pairCode': self.pair_code},
             {
-                '$push': {'messages': message},  # Add message to messages array
-                '$setOnInsert': {  # Only set these fields if creating new document
+                '$push': {'messages': message},
+                '$setOnInsert': {
                     'pairCode': self.pair_code,
                     'createdAt': datetime.utcnow().isoformat()
                 },
                 '$set': {
-                    'lastMessageAt': datetime.utcnow().isoformat()  # Update last message time
+                    'lastMessageAt': datetime.utcnow().isoformat()
                 }
             },
-            upsert=True  # Create document if it doesn't exist
+            upsert=True
         )
 
         # Create message for WebSocket
@@ -120,7 +166,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'senderEmail': self.user_email,
             'type': msg_type,
             'content': content,
-            'timestamp': message['timestamp']
+            'timestamp': message['timestamp'],
+            'seen': False
         }
 
         await self.channel_layer.group_send(
@@ -140,3 +187,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "reminder": event["reminder"]
         }))
 
+    async def seen_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "seen_update",
+            "message_id": event["message_id"],
+            "seen": event["seen"]
+        }))
