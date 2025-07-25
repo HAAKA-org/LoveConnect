@@ -7,6 +7,8 @@ from pymongo import MongoClient
 import json
 import random
 import string
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
@@ -107,6 +109,58 @@ def login(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def google_signin(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            token = data.get('token')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=400)
+
+            # Verify token
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), "1037758248458-o372odjqq94ctstj66pcrt601058hn1k.apps.googleusercontent.com")
+            email = idinfo.get('email')
+            name = idinfo.get('name', email.split('@')[0])
+
+            if not email:
+                return JsonResponse({'error': 'Google token invalid'}, status=400)
+
+            user = users_collection.find_one({'email': email})
+            if not user:
+                # Auto signup
+                user = {
+                    'name': name,
+                    'email': email,
+                    'createdAt': datetime.datetime.utcnow(),
+                    'isPaired': False
+                }
+                users_collection.insert_one(user)
+
+            # Generate JWT token for session
+            payload = {
+                '_id': str(user['_id']),
+                'email': user['email'],
+                'name': user['name'],
+                'partnerCode': user.get('partnerCode'),
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+            }
+            token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+            response = JsonResponse({'message': 'Google login successful'})
+            response.set_cookie(
+                key='loveconnect',
+                value=token,
+                httponly=True,
+                samesite='Lax',
+                max_age=86400
+            )
+            return response
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
 
 @csrf_exempt

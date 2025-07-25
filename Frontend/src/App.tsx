@@ -14,35 +14,38 @@ import Reminders from './pages/Reminders';
 import Extras from './pages/Extras';
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 function App() {
   return (
     <AuthProvider>
       <ChatProvider>
-        <Router>
-          <div className="min-h-screen bg-pink-50">
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/pairing" element={<Pairing />} />
-              <Route path="/dashboard" element={
-                
-                  <DashboardLayout />
-                
-              }>
-                <Route index element={<Navigate to="/dashboard/chat" replace />} />
-                <Route path="chat" element={<Chat />} />
-                <Route path="gallery" element={<Gallery />} />
-                <Route path="notes" element={<Notes />} />
-                <Route path="timeline" element={<Timeline />} />
-                <Route path="reminders" element={<Reminders />} />
-                <Route path="extras" element={<Extras />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-            </Routes>
-          </div>
-        </Router>
+        <GoogleOAuthProvider clientId="1037758248458-o372odjqq94ctstj66pcrt601058hn1k.apps.googleusercontent.com">
+          <Router>
+            <div className="min-h-screen bg-pink-50">
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/pairing" element={<Pairing />} />
+                <Route path="/dashboard" element={
+                  
+                    <DashboardLayout />
+                  
+                }>
+                  <Route index element={<Navigate to="/dashboard/chat" replace />} />
+                  <Route path="chat" element={<Chat />} />
+                  <Route path="gallery" element={<Gallery />} />
+                  <Route path="notes" element={<Notes />} />
+                  <Route path="timeline" element={<Timeline />} />
+                  <Route path="reminders" element={<Reminders />} />
+                  <Route path="extras" element={<Extras />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+              </Routes>
+            </div>
+          </Router>
+        </GoogleOAuthProvider>
       </ChatProvider>
     </AuthProvider>
   );

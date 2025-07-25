@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Heart, Copy, Users, Plus, Hash } from 'lucide-react';
 
@@ -9,10 +9,40 @@ const Pairing: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [mode, setMode] = useState<'select' | 'generate' | 'enter'>('select');
+  const [userEmail, setUserEmail] = useState('');
   
   const navigate = useNavigate();
   const location = useLocation();
-  const userEmail = location.state?.email || '';
+
+  useEffect(() => {
+    // Get email from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedData = JSON.parse(userData);
+        const email = parsedData.email || '';
+        setUserEmail(email);
+        console.log('User Email:', email);
+        
+        if (!email) {
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Error parsing user data from localStorage:', error);
+        navigate('/login');
+      }
+    } else {
+      // Fallback to location.state if localStorage is empty
+      const emailFromState = location.state?.email || '';
+      if (emailFromState) {
+        setUserEmail(emailFromState);
+        console.log('User Email from state:', emailFromState);
+      } else {
+        navigate('/login');
+      }
+    }
+  }, [location.state, navigate]);
+  
 
   const generatePairCode = async () => {
     setIsLoading(true);

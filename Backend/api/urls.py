@@ -1,13 +1,14 @@
 from django.urls import path
 from .views import *
 from .gallery import *
-from .notes import *
+from .notes import *    
 from .reminders import *
 from .extras import *
 
 urlpatterns = [
     path('signup/', signup, name="signup"),
     path('login/', login, name="login"),
+    path('google-signin/', google_signin, name="google_signin"),
     path('logout/', logout, name="logout"),
     path('get-user/', get_user, name="get_user"),
     path('update-profile/', update_profile, name="update_profile"),

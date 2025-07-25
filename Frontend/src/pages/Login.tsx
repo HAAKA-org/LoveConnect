@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -180,6 +181,31 @@ const Login: React.FC = () => {
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
+
+          <span className="text-center text-sm text-gray-500 justify-center flex items-center font-semibold">
+            or
+          </span>
+
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              // Send credentialResponse.credential (JWT) to your backend
+              const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ token: credentialResponse.credential })
+              });
+              const data = await res.json();
+              if (res.ok) {
+                navigate('/pairing', { state: { email } });
+              } else {
+                setError(data.error || 'Google sign-in failed');
+              }
+            }}
+            onError={() => setError('Google sign-in failed')}
+            width="300"
+          />
+
           {isBreakup && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm space-y-2">
               <p><strong>Reason:</strong> {breakupReason}</p>
