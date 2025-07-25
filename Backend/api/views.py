@@ -7,6 +7,8 @@ from pymongo import MongoClient
 import json
 import random
 import string
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
@@ -108,9 +110,6 @@ def login(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 @csrf_exempt
 def google_signin(request):

@@ -197,13 +197,13 @@ const Login: React.FC = () => {
               });
               const data = await res.json();
               if (res.ok) {
-                navigate('/dashboard');
+                navigate('/pairing', { state: { email } });
               } else {
                 setError(data.error || 'Google sign-in failed');
               }
             }}
             onError={() => setError('Google sign-in failed')}
-            width="100%"
+            width="300"
           />
 
           {isBreakup && (
