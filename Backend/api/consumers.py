@@ -140,7 +140,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'senderEmail': self.user_email,
             'type': msg_type,
             'content': content,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
             'seen': False
         }
 
