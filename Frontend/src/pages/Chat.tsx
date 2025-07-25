@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Image, Mic, Smile, CheckCircle, AlertCircle, Heart, X, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../components/ThemeContext'; // Adjust the import path as needed
 
 interface ToastMessage {
   id: string;
@@ -10,6 +11,7 @@ interface ToastMessage {
 
 const Chat: React.FC = () => {
   const [message, setMessage] = useState('');
+  const { isDarkMode } = useTheme();
   const [messages, setMessages] = useState<Array<{
     id: string;
     senderEmail: string;
@@ -208,7 +210,7 @@ const Chat: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-pink-50">
+    <div className={`h-screen flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-pink-50'}`}>
 
       {/* Notification Banner */}
       {showNotification && (
@@ -268,7 +270,7 @@ const Chat: React.FC = () => {
         ))}
       </div>
       {/* Header */}
-      <div className="bg-white border-b border-pink-200 p-4 fixed w-full z-10 top-0 animate-slide-in">
+      <div className={` border-b border-pink-200 p-4 fixed w-full z-10 top-0 animate-slide-in ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-pink-600 rounded-full flex items-center justify-center">
@@ -277,7 +279,7 @@ const Chat: React.FC = () => {
               </span>
             </div>
             <div>
-              <h1 className="font-semibold text-gray-800">
+              <h1 className="font-semibold ">
                 {user?.partnerName || 'Partner'}
               </h1>
               <p className="text-sm text-green-600">Online</p>
@@ -321,7 +323,7 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Message Input */}
-      <div className="bg-white border-t border-pink-200 p-4 fixed bottom-14 w-full mb-6">
+      <div className={` p-4 fixed bottom-14 w-full mb-6 ${isDarkMode ? 'bg-gray-800 border border-pink-600 rounded-xl' : 'bg-white border-t border-pink-200 '}`}>
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
           {/* <div className="flex space-x-2">
             <label htmlFor="image-upload" className="p-2 text-gray-500 hover:text-pink-600 cursor-pointer">
@@ -351,7 +353,7 @@ const Chat: React.FC = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type a message..."
-              className="w-full px-4 py-2 pr-12 rounded-full border border-pink-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className={`w-full px-4 py-2 pr-12 rounded-full border border-pink-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'} transition-colors`}
             />
             {/* <button
               type="button"
