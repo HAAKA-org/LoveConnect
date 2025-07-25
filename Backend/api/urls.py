@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import *
+from .views import forgot_pin
 from .gallery import *
 from .notes import *    
 from .reminders import *
@@ -20,6 +21,10 @@ urlpatterns = [
     path('request-patchup/', request_patchup, name="request_patchup"),
     path('send-message/', send_message, name="send_message"),
     path('get-messages/', get_messages, name="get_messages"),
+
+    # Forgot PIN
+    path('forgot-pin/', forgot_pin, name="forgot_pin"),
+    path('verify-reset-pin/', verify_reset_pin, name="verify_reset_pin"),
 
     # Gallery URLs
     path('upload-photo/', upload_photo, name="upload_photo"),

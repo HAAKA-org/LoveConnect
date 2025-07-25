@@ -16,6 +16,8 @@ import Settings from './pages/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+import ForgotPin from './pages/ForgotPin';
+
 function App() {
   return (
     <AuthProvider>
@@ -28,6 +30,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/pairing" element={<Pairing />} />
+                <Route path="/forgot-pin" element={<ForgotPin />} />
                 <Route path="/dashboard" element={
                   
                     <DashboardLayout />

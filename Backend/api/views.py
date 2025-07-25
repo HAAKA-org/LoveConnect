@@ -9,6 +9,9 @@ import random
 import string
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
@@ -23,6 +26,60 @@ def generate_partner_code():
     letters = ''.join(random.choices(string.ascii_uppercase, k=3))
     digits = ''.join(random.choices(string.digits, k=3))
     return letters + digits
+
+def send_reset_email(to_email, reset_code):
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    sender_email = 'ajay.chakravarthi.s.ad.2022@snsce.ac.in'
+    sender_password = 'jxnulfknujfmvlbj'
+
+    subject = 'LoveConnect PIN Reset Code'
+    body = f"""
+    <html>
+        <body style="font-family: 'Segoe UI', Arial, sans-serif; color: #d72660; background: #fff0f6; padding: 0; margin: 0;">
+            <div style="max-width: 480px; margin: 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px #e11d4822; padding: 36px 28px;">
+            <div style="text-align: center;">
+                <div style="font-size: 2.5em; margin-bottom: 8px;">💖</div>
+                <h2 style="margin: 0; color: #d72660; font-weight: 700; letter-spacing: 1px;">LoveConnect</h2>
+                <p style="color: #b91c4b; margin-top: 8px; font-size: 1.1em;">A little love, a little magic ✨</p>
+            </div>
+            <hr style="border: none; border-top: 2px dashed #f9a8d4; margin: 24px 0;">
+            <p style="font-size: 1.1em;">Hi there <span style="font-size: 1.2em;">💌</span>,</p>
+            <p>We received a request to reset your <b>LoveConnect</b> PIN.</p>
+            <p style="margin-bottom: 0.5em;">Your one-time PIN reset code is:</p>
+            <div style="margin: 24px 0; text-align: center;">
+                <span style="display: inline-block; font-size: 2.8em; font-weight: bold; letter-spacing: 12px; color: #fff; background: linear-gradient(90deg,#e11d48 60%,#f472b6 100%); padding: 20px 40px; border-radius: 16px; border: 3px solid #e11d48; box-shadow: 0 2px 12px #f472b655;">
+                {reset_code}
+                </span>
+            </div>
+            <p style="font-size: 1.05em;">Please enter this code in the app to set a new PIN.<br>
+            <span style="color: #d72660; font-weight: 500;">This code is valid for <b>15 minutes</b>.</span></p>
+            <p style="color: #888; font-size: 0.98em;">If you did not request a PIN reset, you can safely ignore this email.</p>
+            <hr style="border: none; border-top: 2px dashed #f9a8d4; margin: 24px 0;">
+            <p style="margin-top: 32px; color: #b91c4b; font-size: 1.1em;">With love,<br>
+                <b>The LoveConnect Team</b> <span style="font-size: 1.2em;">💕</span>
+            </p>
+            </div>
+        </body>
+    </html>
+    """
+
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'html'))
+
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, to_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print('Email send failed:', e)
+        return False
 
 @csrf_exempt
 def signup(request):
@@ -484,6 +541,97 @@ def update_profile(request):
 
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
 
+@csrf_exempt
+def forgot_pin(request):
+    """
+    POST /loveconnect/api/forgot-pin/
+    Body: { "email": "user@example.com" }
+    Generates a reset code, stores it in the user doc, and sends an email.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        email = data.get('email')
+        if not email:
+            return JsonResponse({'error': 'Email is required'}, status=400)
+
+        user = users_collection.find_one({'email': email})
+        if not user:
+            # Explicitly fail if user not found
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        # Generate a 6-digit reset code
+        reset_code = ''.join(random.choices(string.digits, k=6))
+        users_collection.update_one({'email': email}, {'$set': {
+            'pinResetCode': reset_code,
+            'pinResetCodeCreatedAt': datetime.datetime.utcnow()
+        }})
+
+        # Send the reset code to the user's email
+        email_sent = send_reset_email(email, reset_code)
+        if not email_sent:
+            return JsonResponse({'error': 'Failed to send reset email. Please try again later.'}, status=500)
+
+        return JsonResponse({'message': 'You will receive instructions to reset your PIN.'}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@csrf_exempt
+def verify_reset_pin(request):
+    """
+    POST /loveconnect/api/verify-reset-pin/
+    Body: { "email": ..., "resetCode": ..., "newPin": ... }
+    Verifies the reset code and updates the user's PIN if valid.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        email = data.get('email')
+        reset_code = data.get('resetCode')
+        new_pin = data.get('newPin')
+        if not (email and reset_code and new_pin):
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+        user = users_collection.find_one({'email': email})
+        if not user:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        # Check if reset code matches and is not expired (valid for 15 min)
+        stored_code = user.get('pinResetCode')
+        code_time = user.get('pinResetCodeCreatedAt')
+        if not stored_code or not code_time:
+            return JsonResponse({'error': 'No reset code found. Please request again.'}, status=400)
+
+        # Check code expiry (15 min)
+        now = datetime.datetime.utcnow()
+        if isinstance(code_time, dict) and '$date' in code_time:
+            code_time = datetime.datetime.fromisoformat(code_time['$date'].replace('Z', '+00:00'))
+        elif isinstance(code_time, str):
+            code_time = datetime.datetime.fromisoformat(code_time.replace('Z', '+00:00'))
+        # else assume datetime
+        if now - code_time > datetime.timedelta(minutes=15):
+            return JsonResponse({'error': 'Reset code expired. Please request again.'}, status=400)
+
+        if str(stored_code) != str(reset_code):
+            return JsonResponse({'error': 'Invalid reset code.'}, status=400)
+
+        # Hash and update new PIN
+        hashed_new_pin = bcrypt.hashpw(new_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        users_collection.update_one(
+            {'email': email},
+            {'$set': {'pin': hashed_new_pin}, '$unset': {'pinResetCode': '', 'pinResetCodeCreatedAt': ''}}
+        )
+
+        return JsonResponse({'message': 'PIN updated successfully.'}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
 @csrf_exempt
 def change_pin(request):
     if request.method == 'POST':
