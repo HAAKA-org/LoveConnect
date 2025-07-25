@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -188,16 +189,33 @@ const Login: React.FC = () => {
 
           <GoogleLogin
             onSuccess={async (credentialResponse) => {
-              // Send credentialResponse.credential (JWT) to your backend
+              const token = credentialResponse.credential;
+
+              if (!token) {
+                setError('Google sign-in failed: No token received');
+                return;
+              }
+
+              // Decode Google token to get email
+              const decoded: any = jwtDecode(token);
+              const email = decoded?.email;
+
+              // Send token to backend
               const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ token: credentialResponse.credential })
+                body: JSON.stringify({ token })
               });
+
               const data = await res.json();
               if (res.ok) {
-                navigate('/pairing', { state: { email } });
+                const { login_success } = data;
+                if (login_success) {
+                  navigate('/dashboard');
+                } else {
+                  navigate('/pairing', { state: { email } });
+                }
               } else {
                 setError(data.error || 'Google sign-in failed');
               }
