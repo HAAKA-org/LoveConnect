@@ -15,12 +15,15 @@ import Extras from './pages/Extras';
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ThemeProvider } from './components/ThemeContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import ForgotPin from './pages/ForgotPin';
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ChatProvider>
+   <ThemeProvider>
+    <AuthProvider>
+      <ChatProvider>
+        <GoogleOAuthProvider clientId="1037758248458-o372odjqq94ctstj66pcrt601058hn1k.apps.googleusercontent.com">
           <Router>
             <div className="min-h-screen bg-pink-50">
               <Routes>
@@ -28,9 +31,10 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/pairing" element={<Pairing />} />
+                <Route path="/forgot-pin" element={<ForgotPin />} />
                 <Route path="/dashboard" element={
-
-                  <DashboardLayout />
+                  
+                    <DashboardLayout />
 
                 }>
                   <Route index element={<Navigate to="/dashboard/chat" replace />} />
@@ -45,9 +49,11 @@ function App() {
               </Routes>
             </div>
           </Router>
-        </ChatProvider>
-      </AuthProvider>
-    </ThemeProvider>
+        </GoogleOAuthProvider>
+      </ChatProvider>
+    </AuthProvider>
+   </ThemeProvider>
+
   );
 }
 

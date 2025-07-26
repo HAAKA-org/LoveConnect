@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -69,7 +71,7 @@ const Login: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email }) // ✅ make sure email is passed
+        body: JSON.stringify({ email })
       });
 
       const data = await res.json();
@@ -180,6 +182,48 @@ const Login: React.FC = () => {
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
+
+          <span className="text-center text-sm text-gray-500 justify-center flex items-center font-semibold">
+            or
+          </span>
+
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              const token = credentialResponse.credential;
+
+              if (!token) {
+                setError('Google sign-in failed: No token received');
+                return;
+              }
+
+              // Decode Google token to get email
+              const decoded: any = jwtDecode(token);
+              const email = decoded?.email;
+
+              // Send token to backend
+              const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ token })
+              });
+
+              const data = await res.json();
+              if (res.ok) {
+                const { login_success } = data;
+                if (login_success) {
+                  navigate('/dashboard');
+                } else {
+                  navigate('/pairing', { state: { email } });
+                }
+              } else {
+                setError(data.error || 'Google sign-in failed');
+              }
+            }}
+            onError={() => setError('Google sign-in failed')}
+            width="386"
+          />
+
           {isBreakup && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm space-y-2">
               <p><strong>Reason:</strong> {breakupReason}</p>

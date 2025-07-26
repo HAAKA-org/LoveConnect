@@ -9,17 +9,20 @@ interface ToastMessage {
   type: 'success' | 'error' | 'info';
 }
 
+interface ChatMessage {
+  id: string;
+  senderEmail: string;
+  content: string;
+  type: string;
+  timestamp: Date;
+  imageUrl?: string;
+  seen: boolean;
+}
+
 const Chat: React.FC = () => {
   const [message, setMessage] = useState('');
   const { isDarkMode } = useTheme();
-  const [messages, setMessages] = useState<Array<{
-    id: string;
-    senderEmail: string;
-    content: string;
-    type: string;
-    timestamp: Date;
-    imageUrl?: string;
-  }>>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
@@ -28,22 +31,20 @@ const Chat: React.FC = () => {
   const { user } = useAuth();
   const socketRef = useRef<WebSocket | null>(null);
 
-  // Toast notification state
+  const [isWindowVisible, setIsWindowVisible] = useState(!document.hidden);
+
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Function to show toast messages
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now().toString();
     const newToast = { id, message, type };
     setToasts(prev => [...prev, newToast]);
 
-    // Auto remove after 4 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
     }, 4000);
   };
 
-  // Function to manually remove toast
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
@@ -56,14 +57,33 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Request notification permission on mount
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      console.log('Visibility changed, isVisible:', isVisible);
+      setIsWindowVisible(isVisible);
+      if (
+        isVisible &&
+        socketRef.current &&
+        socketRef.current.readyState === WebSocket.OPEN
+      ) {
+        console.log('Sending mark_seen message');
+        socketRef.current.send(JSON.stringify({ type: 'mark_seen' }));
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
   }, []);
 
-  // Fetch messages on component mount
   useEffect(() => {
     if (!user?.partnerCode) return;
 
@@ -83,21 +103,30 @@ const Chat: React.FC = () => {
         return;
       }
 
-      // Handle chat message
+      if (data.type === 'seen_update') {
+        console.log('Received seen_update:', data);
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === data.message_id ? { ...msg, seen: data.seen } : msg
+          )
+        );
+        return;
+      }
+
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         senderEmail: data.senderEmail,
         content: data.content,
         type: data.type,
         timestamp: new Date(data.timestamp),
-        imageUrl: data.type === 'image' ? data.content : null
+        imageUrl: data.type === 'image' ? data.content : null,
+        seen: data.seen || false
       }]);
-      // Show notification if message is from partner
+
       if (data.senderEmail !== user?.email) {
         setNotificationMsg('New message from your partner');
         setShowNotification(true);
-        setTimeout(() => setShowNotification(false), 3000); // Hide after 3s
-        // Browser notification
+        setTimeout(() => setShowNotification(false), 3000);
         if ("Notification" in window && Notification.permission === "granted") {
           new Notification("LoveConnect", {
             body: data.type === 'image' ? 'Image received' : data.content,
@@ -114,12 +143,16 @@ const Chat: React.FC = () => {
 
     socket.onopen = () => {
       showToast('Connected to chat! 💕', 'success');
+      if (isWindowVisible && socketRef.current?.readyState === WebSocket.OPEN) {
+        console.log('Sending mark_seen on open');
+        socketRef.current.send(JSON.stringify({ type: 'mark_seen' }));
+      }
     };
 
     return () => {
       socket.close();
     };
-  }, [user?.partnerCode]);
+  }, [user?.partnerCode, isWindowVisible]);
 
   const fetchMessages = async () => {
     try {
@@ -134,7 +167,8 @@ const Chat: React.FC = () => {
           content: msg.content,
           type: msg.type,
           timestamp: new Date(msg.timestamp),
-          imageUrl: msg.type === 'image' ? msg.content : null
+          imageUrl: msg.type === 'image' ? msg.content : null,
+          seen: msg.seen || false
         }));
         setMessages(mapped);
       }
@@ -202,24 +236,21 @@ const Chat: React.FC = () => {
   };
 
   const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(date);
-  };
+  return date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
 
   return (
     <div className={`h-screen flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-pink-50'}`}>
-
-      {/* Notification Banner */}
       {showNotification && (
         <div className="fixed top-0 left-0 w-full bg-pink-600 text-white text-center py-2 z-50 transition">
           {notificationMsg}
         </div>
       )}
 
-      {/* Toast Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map((toast) => (
           <div
@@ -288,7 +319,6 @@ const Chat: React.FC = () => {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pt-20 pb-24">
         {messages.map((msg) => (
           <div
@@ -308,12 +338,26 @@ const Chat: React.FC = () => {
                     alt="Shared image"
                     className="rounded-lg max-w-full h-auto"
                   />
-                  <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
+                    {msg.senderEmail === user?.email && (
+                      <span className={`text-xs ${msg.seen ? 'text-blue-500' : 'text-gray-500'}`}>
+                        {msg.seen ? '✓✓' : '✓'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div>
                   <p className="break-words">{msg.content}</p>
-                  <p className="text-xs opacity-75 mt-1">{formatTime(msg.timestamp)}</p>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
+                    {msg.senderEmail === user?.email && (
+                      <span className={`text-xs ${msg.seen ? 'text-blue-500' : 'text-gray-500'}`}>
+                        {msg.seen ? '✓✓' : '✓'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -325,28 +369,6 @@ const Chat: React.FC = () => {
       {/* Message Input */}
       <div className={` p-4 fixed bottom-14 w-full mb-6 ${isDarkMode ? 'bg-gray-800 border border-pink-600 rounded-xl' : 'bg-white border-t border-pink-200 '}`}>
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
-          {/* <div className="flex space-x-2">
-            <label htmlFor="image-upload" className="p-2 text-gray-500 hover:text-pink-600 cursor-pointer">
-              <Image size={20} />
-            </label>
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-
-            <button
-              type="button"
-              onClick={() => setIsRecording(!isRecording)}
-              className={`p-2 rounded-full ${isRecording ? 'text-red-600 bg-red-100' : 'text-gray-500 hover:text-pink-600'
-                }`}
-            >
-              <Mic size={20} />
-            </button>
-          </div> */}
-
           <div className="flex-1 relative">
             <input
               type="text"
@@ -355,12 +377,6 @@ const Chat: React.FC = () => {
               placeholder="Type a message..."
               className={`w-full px-4 py-2 pr-12 rounded-full border border-pink-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'} transition-colors`}
             />
-            {/* <button
-              type="button"
-              className="absolute right-3 top-2 text-gray-500 hover:text-pink-600"
-            >
-              <Smile size={20} />
-            </button> */}
           </div>
 
           <button
