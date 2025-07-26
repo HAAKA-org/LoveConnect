@@ -14,12 +14,13 @@ import Reminders from './pages/Reminders';
 import Extras from './pages/Extras';
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ThemeProvider } from './components/ThemeContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-
 import ForgotPin from './pages/ForgotPin';
 
 function App() {
   return (
+   <ThemeProvider>
     <AuthProvider>
       <ChatProvider>
         <GoogleOAuthProvider clientId="1037758248458-o372odjqq94ctstj66pcrt601058hn1k.apps.googleusercontent.com">
@@ -34,7 +35,7 @@ function App() {
                 <Route path="/dashboard" element={
                   
                     <DashboardLayout />
-                  
+
                 }>
                   <Route index element={<Navigate to="/dashboard/chat" replace />} />
                   <Route path="chat" element={<Chat />} />
@@ -51,6 +52,8 @@ function App() {
         </GoogleOAuthProvider>
       </ChatProvider>
     </AuthProvider>
+   </ThemeProvider>
+
   );
 }
 

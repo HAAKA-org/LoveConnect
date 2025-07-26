@@ -6,7 +6,7 @@ import { ReminderNotificationProvider } from '../context/ReminderNotificationCon
 const DashboardLayout: React.FC = () => {
   return (
     <ReminderNotificationProvider>
-      <div className="min-h-screen bg-pink-50 pb-16">
+      <div className="min-h-screen bg-pink-50">
         <main className="h-full">
           <Outlet />
         </main>
