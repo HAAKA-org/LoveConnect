@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,37 +17,7 @@ const Login: React.FC = () => {
   const [partnerRequested, setPartnerRequested] = useState(false);
 
   const navigate = useNavigate();
-
-  const login = async (email: string, pin: string) => {
-    const res = await fetch('http://localhost:8000/loveconnect/api/login/',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, pin })
-      });
-
-    const data = await res.json();
-
-    if (res.status === 403) {
-      if (data.error?.includes('Your partner has taken a break')) {
-        // Trigger breakup flow
-        setIsBreakup(true);
-        setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
-        await fetchBreakupStatus(email);
-        return false;
-      }
-
-      navigate('/pairing', { state: { email } });
-      return false;
-    }
-
-    if (res.ok) {
-      return true;
-    }
-
-    throw new Error(data.error || 'Login failed');
-  };
+  const { login: authLogin, refreshUserData } = useAuth();
 
   const fetchBreakupStatus = async (email: string) => {
     try {
@@ -92,14 +63,26 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const success = await login(email, pin);
+      const success = await authLogin(email, pin);
       if (success) {
-        // Navigate to dashboard after successful login
-        navigate('/dashboard');
+        // Navigate directly to chat interface after successful login
+        navigate('/dashboard/chat');
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
-        setError(error.message || 'Something went wrong. Please try again.');
+        if (error.message === 'PAIRING_REQUIRED') {
+          navigate('/pairing', { state: { email } });
+          return;
+        }
+        if (error.message.includes('Your partner has taken a break')) {
+          // Handle breakup scenario - you can implement breakup UI here
+          setIsBreakup(true);
+          setBreakupReason(error.message.split(':')[1]?.trim() || 'No reason provided');
+          // Fetch breakup status if needed
+          await fetchBreakupStatus(email);
+        } else {
+          setError(error.message || 'Something went wrong. Please try again.');
+        }
       } else {
         setError('Something went wrong. Please try again.');
       }
@@ -196,28 +179,41 @@ const Login: React.FC = () => {
                 return;
               }
 
-              // Decode Google token to get email
-              const decoded: any = jwtDecode(token);
-              const email = decoded?.email;
+              try {
+                // Decode Google token to get email
+                const decoded: any = jwtDecode(token);
+                const email = decoded?.email;
 
-              // Send token to backend
-              const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ token })
-              });
+                // Send token to backend
+                const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ token })
+                });
 
-              const data = await res.json();
-              if (res.ok) {
-                const { login_success } = data;
-                if (login_success) {
-                  navigate('/dashboard');
+                const data = await res.json();
+                if (res.ok) {
+                  const { login_success } = data;
+                  if (login_success) {
+                    // Update AuthContext with user data after successful Google login
+                    await refreshUserData();
+                    // Navigate directly to chat interface
+                    navigate('/dashboard/chat');
+                  } else {
+                    navigate('/pairing', { state: { email } });
+                  }
                 } else {
-                  navigate('/pairing', { state: { email } });
+                  if (data.error?.includes('Your partner has taken a break')) {
+                    setIsBreakup(true);
+                    setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
+                    await fetchBreakupStatus(email);
+                  } else {
+                    setError(data.error || 'Google sign-in failed');
+                  }
                 }
-              } else {
-                setError(data.error || 'Google sign-in failed');
+              } catch (error) {
+                setError('Google sign-in failed');
               }
             }}
             onError={() => setError('Google sign-in failed')}

@@ -88,27 +88,28 @@ def signup(request):
             data = json.loads(request.body)
             name = data.get('name')
             email = data.get('email')
+            gender = data.get('gender')
             pin = data.get('pin')
-
-            if not (name and email and pin):
+            if not (name and email and gender and pin):
                 return JsonResponse({'error': 'Missing required fields'}, status=400)
-
+            if gender not in ['male', 'female']:
+                return JsonResponse({'error': 'Invalid gender selection'}, status=400)
+            if not pin.isdigit() or len(pin) != 4:
+                return JsonResponse({'error': 'PIN must be exactly 4 digits'}, status=400)
             if users_collection.find_one({'email': email}):
                 return JsonResponse({'error': 'Email already registered'}, status=400)
-
             hashed_pin = bcrypt.hashpw(pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
             user = {
                 'name': name,
                 'email': email,
                 'pin': hashed_pin,
+                'gender': gender,
                 'createdAt': datetime.datetime.utcnow()
             }
-
             users_collection.insert_one(user)
-
             return JsonResponse({'message': 'Signup successful'}, status=201)
-
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON format'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Only POST method allowed'}, status=405)
@@ -143,13 +144,13 @@ def login(request):
                     'error': f"Your partner has taken a break 💔: {reason}"
                 }, status=403)
 
-            # Generate token
+            # Generate token (30 days expiry for persistent login)
             payload = {
                 '_id': str(user['_id']),
                 'email': user['email'],
                 'name': user['name'],
                 'partnerCode': user.get('partnerCode'),
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
             }
             token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -159,7 +160,8 @@ def login(request):
                 value=token,
                 httponly=True,
                 samesite='Lax',
-                max_age=86400
+                max_age=30*24*60*60,  # 30 days in seconds
+                secure=False  # Set to True in production with HTTPS
             )
             return response
 
@@ -211,13 +213,13 @@ def google_signin(request):
                     'error': f"Your partner has taken a break 💔: {reason}"
                 }, status=403)
 
-            # Create JWT token
+            # Create JWT token (30 days expiry for persistent login)
             payload = {
                 '_id': str(user['_id']),
                 'email': user['email'],
                 'name': user['name'],
                 'partnerCode': user.get('partnerCode'),
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
             }
             jwt_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -230,7 +232,8 @@ def google_signin(request):
                 value=jwt_token,
                 httponly=True,
                 samesite='Lax',
-                max_age=86400
+                max_age=30*24*60*60,  # 30 days in seconds
+                secure=False  # Set to True in production with HTTPS
             )
             return response
 
@@ -361,11 +364,27 @@ def pair_partner(request):
             if user.get('isPaired'):
                 return JsonResponse({'message': 'Already paired'}, status=200)
 
+            # Get current user's gender
+            user_gender = user.get('gender')
+            if not user_gender:
+                return JsonResponse({'error': 'User gender not found. Please update your profile.'}, status=400)
+
             if code:
                 # User is trying to pair using a partner's code
                 partner = users_collection.find_one({'partnerCode': code, 'isPaired': False})
                 if partner:
-                    # Pair both
+                    # Check partner's gender
+                    partner_gender = partner.get('gender')
+                    if not partner_gender:
+                        return JsonResponse({'error': 'Partner gender information not available.'}, status=400)
+                    
+                    # Validate gender compatibility (no same-gender pairing)
+                    if user_gender == partner_gender:
+                        return JsonResponse({
+                            'error': 'Same gender pairing is not allowed. Only male-female pairs are supported.'
+                        }, status=400)
+                    
+                    # Pair both users (only if genders are different)
                     users_collection.update_one(
                         {'email': email},
                         {'$set': {
@@ -509,6 +528,7 @@ def get_user(request):
                 '_id': str(user['_id']),
                 'name': user['name'],
                 'email': user['email'],
+                'gender': user.get('gender'),  # Add gender field
                 'isPaired': user.get('isPaired', False),
                 'partnerCode': user.get('partnerCode'),
                 'pairedWith': user.get('pairedWith'),
@@ -522,6 +542,52 @@ def get_user(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Only GET method allowed'}, status=405)
+
+@csrf_exempt
+def refresh_token(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            user = users_collection.find_one({'email': user_email})
+            if not user:
+                return JsonResponse({'error': 'User not found'}, status=404)
+
+            # Generate new token with extended expiry
+            new_payload = {
+                '_id': str(user['_id']),
+                'email': user['email'],
+                'name': user['name'],
+                'partnerCode': user.get('partnerCode'),
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
+            }
+            new_token = jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+            response = JsonResponse({'message': 'Token refreshed'})
+            response.set_cookie(
+                key='loveconnect',
+                value=new_token,
+                httponly=True,
+                samesite='Lax',
+                max_age=30*24*60*60,
+                secure=False
+            )
+            return response
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
 
 @csrf_exempt
 def update_profile(request):

@@ -12,6 +12,7 @@ urlpatterns = [
     path('google-signin/', google_signin, name="google_signin"),
     path('logout/', logout, name="logout"),
     path('get-user/', get_user, name="get_user"),
+    path('refresh-token/', refresh_token, name="refresh_token"),
     path('update-profile/', update_profile, name="update_profile"),
     path('change-pin/', change_pin, name="change_pin"),
     path('pair-partner/', pair_partner, name="pair_partner"),
