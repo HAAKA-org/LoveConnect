@@ -49,7 +49,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/support" element={<Support />} />
           <Route path="/" element={
-            isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Landing />
+            isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Login />
           } />
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Login />
