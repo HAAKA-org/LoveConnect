@@ -81,7 +81,7 @@ const Support: React.FC = () => {
                                 Your Name
                             </label>
                             <div className="relative">
-                                <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                                <User className="absolute left-3 inset-y-0 my-auto w-5 h-5 text-gray-400" />
                                 <input
                                     type="text"
                                     id="name"
@@ -100,7 +100,7 @@ const Support: React.FC = () => {
                                 Email Address
                             </label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                                <Mail className="absolute left-3 inset-y-0 my-auto w-5 h-5 text-gray-400" />
                                 <input
                                     type="email"
                                     id="email"
@@ -119,7 +119,7 @@ const Support: React.FC = () => {
                                 Message
                             </label>
                             <div className="relative">
-                                <MessageCircle className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                                <MessageCircle className="absolute left-3 top-4 w-5 h-5 text-gray-400" />
                                 <textarea
                                     id="message"
                                     name="message"
