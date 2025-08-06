@@ -135,7 +135,10 @@ const Reminders: React.FC = () => {
         setIsCreating(false);
         // Refresh list
         const refreshed = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
-          withCredentials: true
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}` // <-- Add this line
+          }
         });
         const remindersWithDates = refreshed.data.reminders.map((reminder: any) => ({
           ...reminder,

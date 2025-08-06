@@ -153,8 +153,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await response.json();
 
       if (data.token) {
-        // Store token in localStorage for Authorization header use
-        localStorage.setItem('loveconnect_token', data.token);
+        // Store token in cookie (expires in 30 days)
+        document.cookie = `loveconnect=${data.token}; path=/; max-age=${30 * 24 * 60 * 60}; secure; samesite=strict`;
       }
 
       if (response.status === 403) {

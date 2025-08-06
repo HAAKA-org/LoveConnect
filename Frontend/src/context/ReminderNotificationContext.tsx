@@ -35,9 +35,16 @@ export const ReminderNotificationProvider: React.FC<{ children: React.ReactNode 
   useEffect(() => {
     const fetchReminders = async () => {
       try {
+        const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('loveconnect='))
+        ?.split('=')[1];
         const res = await axios.get('http://localhost:8000/loveconnect/api/reminders/', {
-          withCredentials: true
-        });
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
         const remindersWithDates = res.data.reminders.map((reminder: any) => ({
           ...reminder,
           id: reminder._id,
