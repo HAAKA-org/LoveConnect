@@ -193,14 +193,44 @@ def google_signin(request):
             user = users_collection.find_one({'email': email})
 
             if not user:
-                # Auto-signup for first-time Google user
-                user = {
+                # Auto-signup for first-time Google user (without gender initially)
+                user_doc = {
                     'name': name,
                     'email': email,
                     'createdAt': datetime.datetime.utcnow(),
-                    'isPaired': False
+                    'isPaired': False,
+                    'gender': None  # Will be set later via profile completion
                 }
-                users_collection.insert_one(user)
+                users_collection.insert_one(user_doc)
+                # Fetch the user again to get the _id
+                user = users_collection.find_one({'email': email})
+
+            # Create JWT token first (needed for profile completion)
+            payload = {
+                '_id': str(user['_id']),
+                'email': user['email'],
+                'name': user['name'],
+                'partnerCode': user.get('partnerCode'),
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
+            }
+            jwt_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+            # ✅ Check if user needs to complete profile (gender selection)
+            if not user.get('gender'):
+                response = JsonResponse({
+                    'message': 'Profile completion required',
+                    'profile_incomplete': True,
+                    'missing_fields': ['gender']
+                }, status=200)
+                response.set_cookie(
+                    key='loveconnect',
+                    value=jwt_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=30*24*60*60,  # 30 days in seconds
+                    secure=False  # Set to True in production with HTTPS
+                )
+                return response
 
             # ✅ Check if paired and not in breakup
             is_paired = user.get('isPaired', False)
@@ -620,6 +650,45 @@ def update_profile(request):
                 return JsonResponse({'message': 'Profile updated successfully'}, status=200)
             else:
                 return JsonResponse({'message': 'No changes made'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+
+@csrf_exempt
+def complete_google_profile(request):
+    if request.method == 'POST':
+        try:
+            token = request.COOKIES.get('loveconnect')
+            if not token:
+                return JsonResponse({'error': 'Missing token'}, status=401)
+
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_email = payload.get('email')
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+            data = json.loads(request.body)
+            gender = data.get('gender')
+
+            if not gender or gender not in ['male', 'female']:
+                return JsonResponse({'error': 'Valid gender selection required'}, status=400)
+
+            user = users_collection.find_one({'email': user_email})
+            if not user:
+                return JsonResponse({'error': 'User not found'}, status=404)
+
+            # Update user with gender
+            users_collection.update_one(
+                {'email': user_email},
+                {'$set': {'gender': gender}}
+            )
+
+            return JsonResponse({'message': 'Profile completed successfully'}, status=200)
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)

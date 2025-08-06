@@ -194,7 +194,14 @@ const Login: React.FC = () => {
 
                 const data = await res.json();
                 if (res.ok) {
-                  const { login_success } = data;
+                  const { login_success, profile_incomplete } = data;
+                  
+                  // Check if profile needs completion (missing gender)
+                  if (profile_incomplete) {
+                    navigate('/profile-completion', { state: { email } });
+                    return;
+                  }
+                  
                   if (login_success) {
                     // Update AuthContext with user data after successful Google login
                     await refreshUserData();
