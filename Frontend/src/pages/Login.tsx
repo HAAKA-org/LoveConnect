@@ -25,7 +25,6 @@ const Login: React.FC = () => {
         method: 'GET',
         credentials: 'include'
       });
-
       const data = await res.json();
       if (res.ok) {
         setYouRequested(data.youRequested);
@@ -44,7 +43,6 @@ const Login: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({ email })
       });
-
       const data = await res.json();
       if (res.ok) {
         setYouRequested(true);
@@ -61,11 +59,9 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-
     try {
       const success = await authLogin(email, pin);
       if (success) {
-        // Navigate directly to chat interface after successful login
         navigate('/dashboard/chat');
       }
     } catch (error: unknown) {
@@ -75,10 +71,8 @@ const Login: React.FC = () => {
           return;
         }
         if (error.message.includes('Your partner has taken a break')) {
-          // Handle breakup scenario - you can implement breakup UI here
           setIsBreakup(true);
           setBreakupReason(error.message.split(':')[1]?.trim() || 'No reason provided');
-          // Fetch breakup status if needed
           await fetchBreakupStatus(email);
         } else {
           setError(error.message || 'Something went wrong. Please try again.');
@@ -93,9 +87,9 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 via-pink-50 to-purple-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="bg-pink-600 p-3 rounded-full w-fit mx-auto mb-4">
             <Heart className="w-6 h-6 text-white" fill="white" />
           </div>
@@ -104,13 +98,12 @@ const Login: React.FC = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
-
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
@@ -122,13 +115,12 @@ const Login: React.FC = () => {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                 placeholder="Enter your email"
                 required
               />
             </div>
           </div>
-
           <div>
             <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-2">
               4-Digit PIN
@@ -143,7 +135,7 @@ const Login: React.FC = () => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 4);
                   setPin(value);
                 }}
-                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                 placeholder="Enter your PIN"
                 maxLength={4}
                 required
@@ -157,73 +149,61 @@ const Login: React.FC = () => {
               </button>
             </div>
           </div>
-
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-pink-600 text-white py-3 rounded-lg font-semibold hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-pink-600 text-white py-2 rounded-lg font-semibold hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
-
           <span className="text-center text-sm text-gray-500 justify-center flex items-center font-semibold">
             or
           </span>
-
-          <GoogleLogin
-            onSuccess={async (credentialResponse) => {
-              const token = credentialResponse.credential;
-
-              if (!token) {
-                setError('Google sign-in failed: No token received');
-                return;
-              }
-
-              try {
-                // Decode Google token to get email
-                const decoded: any = jwtDecode(token);
-                const email = decoded?.email;
-
-                // Send token to backend
-                const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({ token })
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                  const { login_success } = data;
-                  if (login_success) {
-                    // Update AuthContext with user data after successful Google login
-                    await refreshUserData();
-                    // Navigate directly to chat interface
-                    navigate('/dashboard/chat');
-                  } else {
-                    navigate('/pairing', { state: { email } });
-                  }
-                } else {
-                  if (data.error?.includes('Your partner has taken a break')) {
-                    setIsBreakup(true);
-                    setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
-                    await fetchBreakupStatus(email);
-                  } else {
-                    setError(data.error || 'Google sign-in failed');
-                  }
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                const token = credentialResponse.credential;
+                if (!token) {
+                  setError('Google sign-in failed: No token received');
+                  return;
                 }
-              } catch (error) {
-                setError('Google sign-in failed');
-              }
-            }}
-            onError={() => setError('Google sign-in failed')}
-            width="386"
-          />
-
+                try {
+                  const decoded: any = jwtDecode(token);
+                  const email = decoded?.email;
+                  const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ token })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    const { login_success } = data;
+                    if (login_success) {
+                      await refreshUserData();
+                      navigate('/dashboard/chat');
+                    } else {
+                      navigate('/pairing', { state: { email } });
+                    }
+                  } else {
+                    if (data.error?.includes('Your partner has taken a break')) {
+                      setIsBreakup(true);
+                      setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
+                      await fetchBreakupStatus(email);
+                    } else {
+                      setError(data.error || 'Google sign-in failed');
+                    }
+                  }
+                } catch (error) {
+                  setError('Google sign-in failed');
+                }
+              }}
+              onError={() => setError('Google sign-in failed')}
+            />
+          </div>
           {isBreakup && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm space-y-2">
               <p><strong>Reason:</strong> {breakupReason}</p>
-
               {!youRequested && (
                 <>
                   {partnerRequested && (
@@ -234,17 +214,15 @@ const Login: React.FC = () => {
                   <button
                     onClick={sendPatchupRequest}
                     type="button"
-                    className="mt-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700"
+                    className="mt-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 w-full"
                   >
                     Send Patch-Up Request 💌
                   </button>
                 </>
               )}
-
               {youRequested && !partnerRequested && (
                 <p className="text-xs text-gray-500 mt-1">Waiting for your partner to agree... 💭</p>
               )}
-
               {youRequested && partnerRequested && (
                 <p className="text-green-600 font-semibold">You both want to patch up! Please try logging in again 💖</p>
               )}
@@ -253,7 +231,7 @@ const Login: React.FC = () => {
         </form>
 
         {/* Footer */}
-        <div className="mt-6 text-center">
+        <div className="mt-4 text-center">
           <Link
             to="/forgot-pin"
             className="text-pink-600 hover:text-pink-700 text-sm font-medium"
@@ -261,8 +239,7 @@ const Login: React.FC = () => {
             Forgot your PIN?
           </Link>
         </div>
-
-        <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+        <div className="mt-6 pt-4 border-t border-gray-200 text-center">
           <p className="text-gray-600">
             Don't have an account?{' '}
             <Link to="/signup" className="text-pink-600 hover:text-pink-700 font-medium">
@@ -270,7 +247,6 @@ const Login: React.FC = () => {
             </Link>
           </p>
         </div>
-
       </div>
     </div>
   );
