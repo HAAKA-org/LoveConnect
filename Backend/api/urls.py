@@ -9,6 +9,7 @@ from .extras import *
 urlpatterns = [
     path('signup/', signup, name="signup"),
     path('login/', login, name="login"),
+    path('support/', support_message, name="support"),
     path('google-signin/', google_signin, name="google_signin"),
     path('complete-google-profile/', complete_google_profile, name="complete_google_profile"),
     path('logout/', logout, name="logout"),

@@ -20,6 +20,7 @@ import { ThemeProvider } from './components/ThemeContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import ForgotPin from './pages/ForgotPin';
 import { Heart } from 'lucide-react';
+import Support from './pages/Support';
 
 // Loading component
 const LoadingScreen: React.FC = () => (
@@ -46,6 +47,7 @@ const AppContent: React.FC = () => {
     <Router>
       <div className="min-h-screen bg-pink-50">
         <Routes>
+          <Route path="/support" element={<Support />} />
           <Route path="/" element={
             isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Landing />
           } />
