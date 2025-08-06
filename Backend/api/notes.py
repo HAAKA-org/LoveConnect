@@ -23,9 +23,16 @@ JWT_ALGORITHM = 'HS256'
 def create_note(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
+            
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
             user = users_collection.find_one({'email': payload['email']})
 
@@ -51,9 +58,16 @@ def create_note(request):
 def get_notes(request):
     if request.method == 'GET':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
+            
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
             user = users_collection.find_one({'email': payload['email']})
             partner_code = user.get('partnerCode')

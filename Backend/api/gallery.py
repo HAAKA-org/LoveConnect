@@ -54,9 +54,15 @@ def upload_to_r2(file):
 def upload_photo(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
 
             payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
             user_email = payload['email']
@@ -94,9 +100,15 @@ def upload_photo(request):
 def get_gallery(request):
     if request.method == 'GET':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
 
             payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
             partner_code = payload['partnerCode']
@@ -120,9 +132,15 @@ def get_gallery(request):
 def toggle_like(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
 
             payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
             user_email = payload['email']
@@ -160,9 +178,16 @@ def toggle_like(request):
 def delete_photo(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
+            
             payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
 
             data = json.loads(request.body)
@@ -199,9 +224,16 @@ def delete_photo(request):
 def edit_photo_caption(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+            token = auth_header.split(' ')[1]
+            
             payload = jwt.decode(token, "loveconnect", algorithms=["HS256"])
 
             data = json.loads(request.body)
