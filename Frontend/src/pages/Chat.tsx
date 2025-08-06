@@ -57,6 +57,11 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Fetch messages on component mount
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
@@ -123,7 +128,7 @@ const Chat: React.FC = () => {
         seen: data.seen || false
       }]);
 
-      if (data.senderEmail !== user?.email) {
+      if (data.senderEmail !== user?.email && !(data.seen)) {
         setNotificationMsg('New message from your partner');
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
@@ -171,6 +176,10 @@ const Chat: React.FC = () => {
           seen: msg.seen || false
         }));
         setMessages(mapped);
+        // Immediately scroll to bottom after setting messages
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        }, 0);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -319,50 +328,52 @@ const Chat: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pt-20 pb-36">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.senderEmail === user?.email ? 'justify-end' : 'justify-start'}`}
-          >
+      <div className="flex-1 overflow-y-auto p-4 pt-20 pb-40 chat-container">
+        <div className="space-y-4 min-h-full flex flex-col justify-end">
+          {messages.map((msg) => (
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${msg.senderEmail === user?.email
-                ? 'bg-pink-600 text-white'
-                : 'bg-white text-gray-800 border border-pink-200'
-                }`}
+              key={msg.id}
+              className={`flex ${msg.senderEmail === user?.email ? 'justify-end' : 'justify-start'}`}
             >
-              {msg.type === 'image' ? (
-                <div className="space-y-2">
-                  <img
-                    src={msg.imageUrl}
-                    alt="Shared image"
-                    className="rounded-lg max-w-full h-auto"
-                  />
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
-                    {msg.senderEmail === user?.email && (
-                      <span className={`text-xs ${msg.seen ? 'text-blue-500' : 'text-gray-500'}`}>
-                        {msg.seen ? '✓✓' : '✓'}
-                      </span>
-                    )}
+              <div
+                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${msg.senderEmail === user?.email
+                  ? 'bg-pink-600 text-white'
+                  : 'bg-white text-gray-800 border border-pink-200'
+                  }`}
+              >
+                {msg.type === 'image' ? (
+                  <div className="space-y-2">
+                    <img
+                      src={msg.imageUrl}
+                      alt="Shared image"
+                      className="rounded-lg max-w-full h-auto"
+                    />
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
+                      {msg.senderEmail === user?.email && (
+                        <span className={`text-xs ${msg.seen ? 'text-blue-500' : 'text-gray-500'}`}>
+                          {msg.seen ? '✓✓' : '✓'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div>
-                  <p className="break-words">{msg.content}</p>
-                  <div className="flex justify-between items-center mt-1">
-                    <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
-                    {msg.senderEmail === user?.email && (
-                      <span className={`text-xs ${msg.seen ? 'text-blue-500' : 'text-gray-500'}`}>
-                        {msg.seen ? '✓✓' : '✓'}
-                      </span>
-                    )}
+                ) : (
+                  <div>
+                    <p className="break-words">{msg.content}</p>
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs opacity-75">{formatTime(msg.timestamp)}</p>
+                      {msg.senderEmail === user?.email && (
+                        <span className={`text-xs ${msg.seen ? 'text-blue-500' : 'text-gray-500'}`}>
+                          {msg.seen ? '✓✓' : '✓'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
         <div ref={messagesEndRef} />
       </div>
 
