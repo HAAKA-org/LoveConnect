@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../components/ThemeContext';
-import { User, Lock, Bell, Moon, Sun, Trash2, Edit3, Save, X, LogOut, Shield, Heart, Camera, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Lock, Bell, Moon, Sun, Trash2, Edit3, Save, X, LogOut, Shield, Heart, Camera, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -300,9 +300,9 @@ const Settings: React.FC = () => {
       title: 'Account',
       items: [
         {
-          icon: LogOut,
-          label: 'Sign Out',
-          action: () => setShowBreakupModal(true),
+          icon: Phone,
+          label: 'Contact Support',
+          action: () => navigate('/support'),
           color: 'bg-red-100 text-red-600'
         },
         {
@@ -311,6 +311,12 @@ const Settings: React.FC = () => {
           action: () => { },
           color: 'bg-red-100 text-red-600',
           disabled: true
+        },
+        {
+          icon: LogOut,
+          label: 'Sign Out',
+          action: () => setShowBreakupModal(true),
+          color: 'bg-red-100 text-red-600'
         }
       ]
     }

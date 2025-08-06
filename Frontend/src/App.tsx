@@ -21,6 +21,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import ForgotPin from './pages/ForgotPin';
 import { Heart } from 'lucide-react';
 import Support from './pages/Support';
+import NotFound from './pages/NotFound';
 
 // Loading component
 const LoadingScreen: React.FC = () => (
@@ -49,7 +50,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/support" element={<Support />} />
           <Route path="/" element={
-            isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Landing />
+            isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Login />
           } />
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/dashboard/chat" replace /> : <Login />
@@ -76,6 +77,8 @@ const AppContent: React.FC = () => {
             <Route path="extras" element={<Extras />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+          {/* Catch-all route for 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </Router>
