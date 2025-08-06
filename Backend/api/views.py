@@ -12,7 +12,7 @@ from google.auth.transport import requests as google_requests
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+import os
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
 db = client['LoveConnect']
@@ -30,9 +30,8 @@ def generate_partner_code():
 def send_reset_email(to_email, reset_code):
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587
-    sender_email = 'ajay.chakravarthi.s.ad.2022@snsce.ac.in'
-    sender_password = 'jxnulfknujfmvlbj'
-
+    sender_email = os.getenv('LOVE_CONNECT_EMAIL')
+    sender_password = os.getenv('LOVE_CONNECT_EMAIL_PASSWORD')
     subject = 'LoveConnect PIN Reset Code'
     body = f"""
     <html>
