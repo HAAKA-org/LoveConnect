@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Heart, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, X, Heart, AlertCircle, CheckCircle} from 'lucide-react';
 import { useTheme } from '../components/ThemeContext'; // Adjust the import path as needed
 
 interface GalleryItem {
@@ -241,12 +241,12 @@ const Gallery: React.FC = () => {
           prev.map(i =>
             i.id === id
               ? {
-                ...i,
-                liked: isNowLiked,
-                likedBy: isNowLiked
-                  ? [...(i.likedBy || []), currentUserEmail]
-                  : (i.likedBy || []).filter(email => email !== currentUserEmail)
-              }
+                  ...i,
+                  liked: isNowLiked,
+                  likedBy: isNowLiked
+                    ? [...(i.likedBy || []), currentUserEmail]
+                    : (i.likedBy || []).filter(email => email !== currentUserEmail)
+                }
               : i
           )
         );
@@ -270,13 +270,24 @@ const Gallery: React.FC = () => {
   useEffect(() => {
     const fetchGallery = async () => {
       try {
+        const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('loveconnect='))
+          ?.split('=')[1];
+
         const [userRes, galleryRes] = await Promise.all([
           fetch('http://localhost:8000/loveconnect/api/get-user/', {
             method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`
+            },
             credentials: 'include'
           }),
           fetch('http://localhost:8000/loveconnect/api/gallery/', {
             method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`
+            },
             credentials: 'include'
           })
         ]);
@@ -302,9 +313,18 @@ const Gallery: React.FC = () => {
         showToast('Failed to load gallery. Please refresh the page', 'error');
       }
     };
+
     const fetchUser = async () => {
+      const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('loveconnect='))
+          ?.split('=')[1];
+
       const res = await fetch("http://localhost:8000/loveconnect/api/get-user/", {
         method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
         credentials: 'include'
       });
       const data = await res.json();

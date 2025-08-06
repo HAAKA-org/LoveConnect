@@ -39,6 +39,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Utility to get token from localStorage
+  const getToken = () => localStorage.getItem('loveconnect_token');
+
   // Auto-refresh token every 24 hours (to be safe with 30-day token)
   useEffect(() => {
     if (isAuthenticated) {
@@ -80,8 +83,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Then verify with backend (only once on app start)
+        const token = getToken();
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
         const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
-          credentials: 'include'
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         
         if (response.ok) {
@@ -106,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem('user');
           setUser(null);
           setIsAuthenticated(false);
+          localStorage.removeItem('loveconnect_token');
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -130,55 +142,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []); // Empty dependency array - only run once on mount
 
-  // Listen for online/offline events
-  useEffect(() => {
-    const handleOnline = async () => {
-      console.log('Back online - checking auth status');
-      try {
-        const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
-          credentials: 'include'
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          const user: User = {
-            id: userData._id || userData.id,
-            name: userData.name,
-            email: userData.email,
-            gender: userData.gender,
-            isPaired: userData.isPaired,
-            partnerCode: userData.partnerCode,
-            partnerName: userData.partnerName,
-            partnerEmail: userData.pairedWith,
-            relationshipStatus: userData.relationshipStatus
-          };
-          
-          setUser(user);
-          setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(user));
-        }
-      } catch (error) {
-        console.error('Online auth check failed:', error);
-      }
-    };
-
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
   const login = async (email: string, pin: string): Promise<boolean> => {
     try {
       const response = await fetch('http://localhost:8000/loveconnect/api/login/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ email, pin })
       });
 
       const data = await response.json();
 
+      if (data.token) {
+        // Store token in cookie (expires in 30 days)
+        document.cookie = `loveconnect=${data.token}; path=/; max-age=${30 * 24 * 60 * 60}; secure; samesite=strict`;
+      }
+
       if (response.status === 403) {
-        // Handle specific error cases
         if (data.error?.includes('Your partner has taken a break')) {
           throw new Error(data.error);
         }
@@ -188,12 +167,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.error || 'Access denied');
       }
 
-      if (response.ok) {
+      if (response.ok && data.token) {
         // Login successful - fetch user data
         const userResponse = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
-          credentials: 'include'
+          headers: {
+            'Authorization': `Bearer ${data.token}`
+          }
         });
-        
+
         if (userResponse.ok) {
           const userData = await userResponse.json();
           const user: User = {
@@ -207,14 +188,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             partnerEmail: userData.pairedWith,
             relationshipStatus: userData.relationshipStatus
           };
-          
+
           setUser(user);
           setIsAuthenticated(true);
           localStorage.setItem('user', JSON.stringify(user));
           return true;
         }
       }
-      
+
       throw new Error(data.error || 'Login failed');
     } catch (error) {
       // Re-throw the error to be handled by the component
@@ -242,26 +223,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // Call backend logout to clear cookies
-      await fetch('http://localhost:8000/loveconnect/api/logout/', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      // Optionally call backend logout if needed
+      // await fetch('http://localhost:8000/loveconnect/api/logout/', { method: 'POST' });
     } catch {
-      // Continue with logout even if backend call fails
+      // Ignore errors
     }
-    
+
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('user');
+    localStorage.removeItem('loveconnect_token');
   };
 
   const refreshUserData = async () => {
     try {
+      const token = getToken();
+      if (!token) return;
+
       const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
-      
+
       if (response.ok) {
         const userData = await response.json();
         const user: User = {
@@ -284,6 +268,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Failed to refresh user data:', error);
     }
   };
+
+  // Listen for online/offline events
+  useEffect(() => {
+    const handleOnline = async () => {
+      console.log('Back online - checking auth status');
+      try {
+        const token = getToken();
+        if (!token) return;
+
+        const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          const user: User = {
+            id: userData._id || userData.id,
+            name: userData.name,
+            email: userData.email,
+            gender: userData.gender,
+            isPaired: userData.isPaired,
+            partnerCode: userData.partnerCode,
+            partnerName: userData.partnerName,
+            partnerEmail: userData.pairedWith,
+            relationshipStatus: userData.relationshipStatus
+          };
+
+          setUser(user);
+          setIsAuthenticated(true);
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+      } catch (error) {
+        console.error('Online auth check failed:', error);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, login, signup, logout, refreshUserData, isAuthenticated, isLoading }}>
