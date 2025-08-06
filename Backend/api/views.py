@@ -12,7 +12,7 @@ from google.auth.transport import requests as google_requests
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+import os
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
 db = client['LoveConnect']
@@ -30,9 +30,8 @@ def generate_partner_code():
 def send_reset_email(to_email, reset_code):
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587
-    sender_email = 'ajay.chakravarthi.s.ad.2022@snsce.ac.in'
-    sender_password = 'jxnulfknujfmvlbj'
-
+    sender_email = os.getenv('LOVE_CONNECT_EMAIL')
+    sender_password = os.getenv('LOVE_CONNECT_EMAIL_PASSWORD')
     subject = 'LoveConnect PIN Reset Code'
     body = f"""
     <html>
@@ -57,7 +56,7 @@ def send_reset_email(to_email, reset_code):
             <p style="color: #888; font-size: 0.98em;">If you did not request a PIN reset, you can safely ignore this email.</p>
             <hr style="border: none; border-top: 2px dashed #f9a8d4; margin: 24px 0;">
             <p style="margin-top: 32px; color: #b91c4b; font-size: 1.1em;">With love,<br>
-                <b>The LoveConnect Team</b> <span style="font-size: 1.2em;">💕</span>
+                <b>The LoveConnect User</b> <span style="font-size: 1.2em;">💕</span>
             </p>
             </div>
         </body>
@@ -94,30 +93,49 @@ def support_message(request):
         if not name or not email or not message:
             return JsonResponse({'error': 'All fields are required.'}, status=400)
 
-        # Compose email
+        # Compose beautiful HTML email
         to_email = 'loveconnect.haaka@gmail.com'
         subject = f"LoveConnect Support Request from {name}"
         body = f"""
-        Support request from LoveConnect:
-
-        Name: {name}
-        Email: {email}
-
-        Message:
-        {message}
+        <html>
+            <body style="font-family: 'Segoe UI', Arial, sans-serif; color: #d72660; background: #fff0f6; padding: 0; margin: 0;">
+                <div style="max-width: 480px; margin: 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px #e11d4822; padding: 36px 28px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5em; margin-bottom: 8px;">💖</div>
+                        <h2 style="margin: 0; color: #d72660; font-weight: 700; letter-spacing: 1px;">LoveConnect</h2>
+                        <p style="color: #b91c4b; margin-top: 8px; font-size: 1.1em;">A little love, a little magic ✨</p>
+                    </div>
+                    <hr style="border: none; border-top: 2px dashed #f9a8d4; margin: 24px 0;">
+                    <p style="font-size: 1.1em;">You have received a new <b>Support Request</b> 💌</p>
+                    <div style="margin: 24px 0; background: #f9a8d4; border-radius: 12px; padding: 18px 20px;">
+                        <p style="margin: 0; color: #b91c4b; font-size: 1.08em;"><b>Name:</b> {name}</p>
+                        <p style="margin: 0; color: #b91c4b; font-size: 1.08em;"><b>Email:</b> <a href="mailto:{email}" style="color: #d72660; text-decoration: underline;">{email}</a></p>
+                    </div>
+                    <div style="margin: 24px 0; background: #fdf2f8; border-radius: 12px; padding: 18px 20px;">
+                        <p style="margin: 0 0 8px 0; color: #d72660; font-weight: 600; font-size: 1.1em;">Message:</p>
+                        <div style="color: #444; font-size: 1.08em; white-space: pre-line;">{message}</div>
+                    </div>
+                    <hr style="border: none; border-top: 2px dashed #f9a8d4; margin: 24px 0;">
+                    <p style="margin-top: 32px; color: #b91c4b; font-size: 1.1em;">With love,<br>
+                        <b>The LoveConnect Team</b> <span style="font-size: 1.2em;">💕</span>
+                    </p>
+                </div>
+            </body>
+        </html>
         """
 
-        msg = MIMEText(body)
+        msg = MIMEMultipart()
         msg['Subject'] = subject
-        msg['From'] = 'support@loveconnect.com' 
+        msg['From'] = 'support@loveconnect.com'
         msg['To'] = to_email
         msg['Reply-To'] = email  # So replies go to the user
+        msg.attach(MIMEText(body, 'html'))
 
         # SMTP config (use app password for Gmail)
         smtp_server = 'smtp.gmail.com'
         smtp_port = 587
-        smtp_user = 'loveconnect.haaka@gmail.com'  
-        smtp_pass = 'tqnm pqrj eowb ppqf'      
+        smtp_user = os.getenv('LOVE_CONNECT_EMAIL')
+        smtp_pass = os.getenv('LOVE_CONNECT_EMAIL_PASSWORD')
 
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
@@ -128,7 +146,7 @@ def support_message(request):
         return JsonResponse({'message': 'Support message sent successfully.'}, status=200)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
+    
 @csrf_exempt
 def signup(request):
     if request.method == 'POST':
