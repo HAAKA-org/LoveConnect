@@ -15,7 +15,6 @@ const Login: React.FC = () => {
   const [breakupReason, setBreakupReason] = useState('');
   const [youRequested, setYouRequested] = useState(false);
   const [partnerRequested, setPartnerRequested] = useState(false);
-
   const navigate = useNavigate();
   const { login: authLogin, refreshUserData } = useAuth();
 
@@ -96,7 +95,6 @@ const Login: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800">Welcome Back</h1>
           <p className="text-gray-600 mt-2">Sign in to your LoveConnect account</p>
         </div>
-
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -159,64 +157,54 @@ const Login: React.FC = () => {
           <span className="text-center text-sm text-gray-500 justify-center flex items-center font-semibold">
             or
           </span>
-
-          <GoogleLogin
-            onSuccess={async (credentialResponse) => {
-              const token = credentialResponse.credential;
-
-              if (!token) {
-                setError('Google sign-in failed: No token received');
-                return;
-              }
-
-              try {
-                // Decode Google token to get email
-                const decoded: any = jwtDecode(token);
-                const email = decoded?.email;
-
-                // Send token to backend
-                const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({ token })
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                  const { login_success, profile_incomplete } = data;
-                  
-                  // Check if profile needs completion (missing gender)
-                  if (profile_incomplete) {
-                    navigate('/profile-completion', { state: { email } });
-                    return;
-                  }
-                  
-                  if (login_success) {
-                    // Update AuthContext with user data after successful Google login
-                    await refreshUserData();
-                    // Navigate directly to chat interface
-                    navigate('/dashboard/chat');
-                  } else {
-                    navigate('/pairing', { state: { email } });
-                  }
-                } else {
-                  if (data.error?.includes('Your partner has taken a break')) {
-                    setIsBreakup(true);
-                    setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
-                    await fetchBreakupStatus(email);
-                  } else {
-                    setError(data.error || 'Google sign-in failed');
-                  }
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                const token = credentialResponse.credential;
+                if (!token) {
+                  setError('Google sign-in failed: No token received');
+                  return;
                 }
-              } catch (error) {
-                setError('Google sign-in failed');
-              }
-            }}
-            onError={() => setError('Google sign-in failed')}
-            width="386"
-          />
+                try {
+                  const decoded: any = jwtDecode(token);
+                  const email = decoded?.email;
+                  const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ token })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    const { login_success, profile_incomplete } = data;
 
+                    if (profile_incomplete) {
+                      navigate('/profile-completion', { state: { email } });
+                      return;
+                    }
+
+                    if (login_success) {
+                      await refreshUserData();
+                      navigate('/dashboard/chat');
+                    } else {
+                      navigate('/pairing', { state: { email } });
+                    }
+                  } else {
+                    if (data.error?.includes('Your partner has taken a break')) {
+                      setIsBreakup(true);
+                      setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
+                      await fetchBreakupStatus(email);
+                    } else {
+                      setError(data.error || 'Google sign-in failed');
+                    }
+                  }
+                } catch (error) {
+                  setError('Google sign-in failed');
+                }
+              }}
+              onError={() => setError('Google sign-in failed')}
+            />
+          </div>
           {isBreakup && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm space-y-2">
               <p><strong>Reason:</strong> {breakupReason}</p>
@@ -245,7 +233,6 @@ const Login: React.FC = () => {
             </div>
           )}
         </form>
-
         {/* Footer */}
         <div className="mt-4 text-center">
           <Link
