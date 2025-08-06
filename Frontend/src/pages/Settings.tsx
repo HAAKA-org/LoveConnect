@@ -271,31 +271,31 @@ const Settings: React.FC = () => {
           toggle: true,
           checked: isDarkMode
         },
-        {
-          icon: Bell,
-          label: 'Notifications',
-          action: () => { },
-          color: 'bg-green-100 text-green-600'
-        }
+        // {
+        //   icon: Bell,
+        //   label: 'Notifications',
+        //   action: () => { },
+        //   color: 'bg-green-100 text-green-600'
+        // }
       ]
     },
-    {
-      title: 'Privacy & Security',
-      items: [
-        {
-          icon: Shield,
-          label: 'Privacy Settings',
-          action: () => { },
-          color: 'bg-indigo-100 text-indigo-600'
-        },
-        {
-          icon: Heart,
-          label: 'Relationship Status',
-          action: () => setShowBreakModal(true),
-          color: 'bg-pink-100 text-pink-600'
-        }
-      ]
-    },
+    // {
+    //   title: 'Privacy & Security',
+    //   items: [
+    //     {
+    //       icon: Shield,
+    //       label: 'Privacy Settings',
+    //       action: () => { },
+    //       color: 'bg-indigo-100 text-indigo-600'
+    //     },
+    //     {
+    //       icon: Heart,
+    //       label: 'Relationship Status',
+    //       action: () => setShowBreakModal(true),
+    //       color: 'bg-pink-100 text-pink-600'
+    //     }
+    //   ]
+    // },
     {
       title: 'Account',
       items: [
@@ -483,7 +483,7 @@ const Settings: React.FC = () => {
         </div>
         {/* Notifications Settings */}
         <div className='space-y-6 mt-6 pb-16'>
-          <div className={`rounded-xl p-6 shadow-sm border transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 border-pink-900 shadow-lg shadow-pink-500' : 'bg-white'}`}>
+          {/* <div className={`rounded-xl p-6 shadow-sm border transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 border-pink-900 shadow-lg shadow-pink-500' : 'bg-white'}`}>
             <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -523,7 +523,7 @@ const Settings: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div> */}
           {/* Change PIN Modal */}
           {showChangePinModal && (
             <div className="fixed inset-0 bg-pink-100/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all">
