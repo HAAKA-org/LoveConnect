@@ -67,7 +67,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // First try to get user from localStorage for immediate UI update
+        const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('loveconnect='))
+          ?.split('=')[1];
+
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           try {
@@ -81,6 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Then verify with backend (only once on app start)
         const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
+           headers: {
+            Authorization: `Bearer ${token}`
+          },
           credentials: 'include'
         });
         
@@ -135,7 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleOnline = async () => {
       console.log('Back online - checking auth status');
       try {
+         const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('loveconnect='))
+          ?.split('=')[1];
         const response = await fetch('http://localhost:8000/loveconnect/api/get-user/', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
           credentials: 'include'
         });
         
@@ -168,9 +182,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, pin: string): Promise<boolean> => {
     try {
-      const response = await fetch('http://localhost:8000/loveconnect/api/login/', {
+       const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('loveconnect='))
+        ?.split('=')[1];
+      const response = await fetch('https://localhost:8000/loveconnect/api/login/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
         credentials: 'include',
         body: JSON.stringify({ email, pin })
       });

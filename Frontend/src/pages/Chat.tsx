@@ -94,9 +94,17 @@ const Chat: React.FC = () => {
 
     const token = document.cookie
       .split('; ')
-      .find(row => row.startsWith('loveconnect'))?.split('=')[1];
+      .find(row => row.startsWith('loveconnect='))
+      ?.split('=')[1];
 
-    const socket = new WebSocket(`ws://localhost:8000/ws/chat/${user.partnerCode}/`);
+    if (!token) {
+      showToast('Authentication token not found. Please log in again.', 'error');
+      return;
+    }
+
+    // Use secure WebSocket (wss://) for HTTPS sites
+    const socket = new WebSocket(`wss://loveconnect-backend-kvb9.onrender.com/ws/chat/${user.partnerCode}/?token=${token}`);
+
     socketRef.current = socket;
 
     socket.onmessage = (event) => {
@@ -128,7 +136,7 @@ const Chat: React.FC = () => {
         seen: data.seen || false
       }]);
 
-      if (data.senderEmail !== user?.email && !(data.seen)) {
+      if (data.senderEmail !== user?.email) {
         setNotificationMsg('New message from your partner');
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
@@ -245,12 +253,12 @@ const Chat: React.FC = () => {
   };
 
   const formatTime = (date: Date) => {
-  return date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-};
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <div className={`h-screen flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-pink-50'}`}>
