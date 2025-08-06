@@ -58,6 +58,7 @@ const Extras: React.FC = () => {
     }
   };
 
+  
   const handleRevealNote = async (id: string) => {
     await fetch(`http://localhost:8000/loveconnect/api/extras/lovejar/reveal/${id}/`, {
       method: 'PATCH',
