@@ -1,0 +1,27 @@
+#!/bin/bash
+# Pre-push hook to block push if branch is behind main
+
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+# Skip check for main itself (main is separately protected)
+if [ "$branch" == "main" ]; then
+    exit 0
+fi
+
+# Fetch latest main
+git fetch origin main
+
+# Check if local branch is behind main
+behind_count=$(git rev-list --count HEAD..origin/main)
+
+if [ "$behind_count" -ne 0 ]; then
+    echo "❌ Push blocked: Your branch '$branch' is behind 'main' by $behind_count commits."
+    echo "➡ Please update your branch before pushing:"
+    echo "   git pull origin main"
+    echo "   OR"
+    echo "   git rebase origin/main"
+    exit 1
+fi
+
+exit 0

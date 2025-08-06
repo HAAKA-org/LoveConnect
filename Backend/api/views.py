@@ -82,6 +82,54 @@ def send_reset_email(to_email, reset_code):
         return False
 
 @csrf_exempt
+def support_message(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+    try:
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        message = data.get('message', '').strip()
+
+        if not name or not email or not message:
+            return JsonResponse({'error': 'All fields are required.'}, status=400)
+
+        # Compose email
+        to_email = 'loveconnect.haaka@gmail.com'
+        subject = f"LoveConnect Support Request from {name}"
+        body = f"""
+        Support request from LoveConnect:
+
+        Name: {name}
+        Email: {email}
+
+        Message:
+        {message}
+        """
+
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = 'support@loveconnect.com' 
+        msg['To'] = to_email
+        msg['Reply-To'] = email  # So replies go to the user
+
+        # SMTP config (use app password for Gmail)
+        smtp_server = 'smtp.gmail.com'
+        smtp_port = 587
+        smtp_user = 'loveconnect.haaka@gmail.com'  
+        smtp_pass = 'tqnm pqrj eowb ppqf'      
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, to_email, msg.as_string())
+        server.quit()
+
+        return JsonResponse({'message': 'Support message sent successfully.'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
 def signup(request):
     if request.method == 'POST':
         try:
