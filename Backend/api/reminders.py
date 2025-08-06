@@ -21,9 +21,16 @@ def create_reminder(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
     try:
-        token = request.COOKIES.get('loveconnect')
-        if not token:
-            return JsonResponse({'error': 'Missing token'}, status=401)
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+        
+        # Extract token from "Bearer <token>" format
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                
+        token = auth_header.split(' ')[1]
+            
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user = users_collection.find_one({'email': payload['email']})
         if not user or not user.get('isPaired') or not user.get('partnerCode'):
@@ -60,9 +67,17 @@ def get_reminders(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Only GET allowed'}, status=405)
     try:
-        token = request.COOKIES.get('loveconnect')
-        if not token:
-            return JsonResponse({'error': 'Missing token'}, status=401)
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+        
+        # Extract token from "Bearer <token>" format
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+        
+        token = auth_header.split(' ')[1]
+        
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user = users_collection.find_one({'email': payload['email']})
         if not user or not user.get('partnerCode'):

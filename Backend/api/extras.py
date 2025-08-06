@@ -20,9 +20,15 @@ JWT_ALGORITHM = 'HS256'
 
 
 def get_user_from_token(request):
-    token = request.COOKIES.get('loveconnect')
-    if not token:
-        return None, JsonResponse({'error': 'Missing token'}, status=401)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+    
+    # Extract token from "Bearer <token>" format
+    if not auth_header.startswith('Bearer '):
+        return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+            
+    token = auth_header.split(' ')[1]
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         email = payload.get('email')

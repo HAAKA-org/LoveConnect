@@ -13,6 +13,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
+
 # MongoDB Connection
 client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
 db = client['LoveConnect']
@@ -56,7 +57,7 @@ def send_reset_email(to_email, reset_code):
             <p style="color: #888; font-size: 0.98em;">If you did not request a PIN reset, you can safely ignore this email.</p>
             <hr style="border: none; border-top: 2px dashed #f9a8d4; margin: 24px 0;">
             <p style="margin-top: 32px; color: #b91c4b; font-size: 1.1em;">With love,<br>
-                <b>The LoveConnect User</b> <span style="font-size: 1.2em;">💕</span>
+                <b>The LoveConnect Team</b> <span style="font-size: 1.2em;">💕</span>
             </p>
             </div>
         </body>
@@ -79,7 +80,6 @@ def send_reset_email(to_email, reset_code):
     except Exception as e:
         print('Email send failed:', e)
         return False
-
 @csrf_exempt
 def support_message(request):
     if request.method != 'POST':
@@ -210,7 +210,7 @@ def login(request):
                     'error': f"Your partner has taken a break 💔: {reason}"
                 }, status=403)
 
-            # Generate token (30 days expiry for persistent login)
+            # Generate token
             payload = {
                 '_id': str(user['_id']),
                 'email': user['email'],
@@ -220,15 +220,14 @@ def login(request):
             }
             token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-            response = JsonResponse({'message': 'Login successful'})
-            response.set_cookie(
-                key='loveconnect',
-                value=token,
-                httponly=True,
-                samesite='Lax',
-                max_age=30*24*60*60,  # 30 days in seconds
-                secure=False  # Set to True in production with HTTPS
-            )
+            response = JsonResponse({'message': 'Login successful', 'token': token})
+            # response.set_cookie(
+            #     key='loveconnect',
+            #     value=token,
+            #     httponly=True,
+            #     samesite='Lax',
+            #     max_age=86400
+            # )
             return response
 
         except Exception as e:
@@ -259,7 +258,7 @@ def google_signin(request):
             user = users_collection.find_one({'email': email})
 
             if not user:
-                # Auto-signup for first-time Google user (without gender initially)
+                # Auto-signup for first-time Google user
                 user_doc = {
                     'name': name,
                     'email': email,
@@ -270,33 +269,6 @@ def google_signin(request):
                 users_collection.insert_one(user_doc)
                 # Fetch the user again to get the _id
                 user = users_collection.find_one({'email': email})
-
-            # Create JWT token first (needed for profile completion)
-            payload = {
-                '_id': str(user['_id']),
-                'email': user['email'],
-                'name': user['name'],
-                'partnerCode': user.get('partnerCode'),
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
-            }
-            jwt_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-            # ✅ Check if user needs to complete profile (gender selection)
-            if not user.get('gender'):
-                response = JsonResponse({
-                    'message': 'Profile completion required',
-                    'profile_incomplete': True,
-                    'missing_fields': ['gender']
-                }, status=200)
-                response.set_cookie(
-                    key='loveconnect',
-                    value=jwt_token,
-                    httponly=True,
-                    samesite='Lax',
-                    max_age=30*24*60*60,  # 30 days in seconds
-                    secure=False  # Set to True in production with HTTPS
-                )
-                return response
 
             # ✅ Check if paired and not in breakup
             is_paired = user.get('isPaired', False)
@@ -309,7 +281,7 @@ def google_signin(request):
                     'error': f"Your partner has taken a break 💔: {reason}"
                 }, status=403)
 
-            # Create JWT token (30 days expiry for persistent login)
+            # Create JWT token
             payload = {
                 '_id': str(user['_id']),
                 'email': user['email'],
@@ -321,16 +293,16 @@ def google_signin(request):
 
             response = JsonResponse({
                 'message': 'Google login successful',
-                'login_success': is_paired  # ✅ return this flag
+                'login_success': is_paired,
+                'token': jwt_token,
             })
-            response.set_cookie(
-                key='loveconnect',
-                value=jwt_token,
-                httponly=True,
-                samesite='Lax',
-                max_age=30*24*60*60,  # 30 days in seconds
-                secure=False  # Set to True in production with HTTPS
-            )
+            # response.set_cookie(
+            #     key='loveconnect',
+            #     value=jwt_token,
+            #     httponly=True,
+            #     samesite='Lax',
+            #     max_age=86400
+            # )
             return response
 
         except Exception as e:
@@ -345,7 +317,16 @@ def request_patchup(request):
 
     try:
         # Step 1: Try to get email from JWT token
-        token = request.COOKIES.get('loveconnect')
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+        
+        # Extract token from "Bearer <token>" format
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                
+        token = auth_header.split(' ')[1]
+        
         user_email = None
 
         if token:
@@ -406,7 +387,15 @@ def breakup_status(request):
         return JsonResponse({'error': 'Only GET allowed'}, status=405)
 
     try:
-        token = request.COOKIES.get('loveconnect')
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+
+        # Extract token from "Bearer <token>" format
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+
+        token = auth_header.split(' ')[1]
         user_email = None
 
         if token:
@@ -517,9 +506,15 @@ def pair_partner(request):
 def send_message(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                    
+            token = auth_header.split(' ')[1]
 
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -564,9 +559,15 @@ def send_message(request):
 def get_messages(request):
     if request.method == 'GET':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                    
+            token = auth_header.split(' ')[1]
 
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -597,9 +598,15 @@ def get_messages(request):
 def get_user(request):
     if request.method == 'GET':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                    
+            token = auth_header.split(' ')[1]
 
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -624,7 +631,6 @@ def get_user(request):
                 '_id': str(user['_id']),
                 'name': user['name'],
                 'email': user['email'],
-                'gender': user.get('gender'),  # Add gender field
                 'isPaired': user.get('isPaired', False),
                 'partnerCode': user.get('partnerCode'),
                 'pairedWith': user.get('pairedWith'),
@@ -640,58 +646,18 @@ def get_user(request):
     return JsonResponse({'error': 'Only GET method allowed'}, status=405)
 
 @csrf_exempt
-def refresh_token(request):
-    if request.method == 'POST':
-        try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
-
-            try:
-                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-                user_email = payload.get('email')
-            except jwt.ExpiredSignatureError:
-                return JsonResponse({'error': 'Token expired'}, status=401)
-            except jwt.InvalidTokenError:
-                return JsonResponse({'error': 'Invalid token'}, status=401)
-
-            user = users_collection.find_one({'email': user_email})
-            if not user:
-                return JsonResponse({'error': 'User not found'}, status=404)
-
-            # Generate new token with extended expiry
-            new_payload = {
-                '_id': str(user['_id']),
-                'email': user['email'],
-                'name': user['name'],
-                'partnerCode': user.get('partnerCode'),
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
-            }
-            new_token = jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-            response = JsonResponse({'message': 'Token refreshed'})
-            response.set_cookie(
-                key='loveconnect',
-                value=new_token,
-                httponly=True,
-                samesite='Lax',
-                max_age=30*24*60*60,
-                secure=False
-            )
-            return response
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-
-@csrf_exempt
 def update_profile(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                    
+            token = auth_header.split(' ')[1]
 
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -716,45 +682,6 @@ def update_profile(request):
                 return JsonResponse({'message': 'Profile updated successfully'}, status=200)
             else:
                 return JsonResponse({'message': 'No changes made'}, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-
-@csrf_exempt
-def complete_google_profile(request):
-    if request.method == 'POST':
-        try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
-
-            try:
-                payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-                user_email = payload.get('email')
-            except jwt.ExpiredSignatureError:
-                return JsonResponse({'error': 'Token expired'}, status=401)
-            except jwt.InvalidTokenError:
-                return JsonResponse({'error': 'Invalid token'}, status=401)
-
-            data = json.loads(request.body)
-            gender = data.get('gender')
-
-            if not gender or gender not in ['male', 'female']:
-                return JsonResponse({'error': 'Valid gender selection required'}, status=400)
-
-            user = users_collection.find_one({'email': user_email})
-            if not user:
-                return JsonResponse({'error': 'User not found'}, status=404)
-
-            # Update user with gender
-            users_collection.update_one(
-                {'email': user_email},
-                {'$set': {'gender': gender}}
-            )
-
-            return JsonResponse({'message': 'Profile completed successfully'}, status=200)
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
@@ -856,9 +783,15 @@ def verify_reset_pin(request):
 def change_pin(request):
     if request.method == 'POST':
         try:
-            token = request.COOKIES.get('loveconnect')
-            if not token:
-                return JsonResponse({'error': 'Missing token'}, status=401)
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+            
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+                    
+            token = auth_header.split(' ')[1]
 
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -900,9 +833,15 @@ def update_relationship_status(request):
         return JsonResponse({'error': 'Only PATCH method allowed'}, status=405)
 
     try:
-        token = request.COOKIES.get('loveconnect')
-        if not token:
-            return JsonResponse({'error': 'Missing token'}, status=401)
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+
+        # Extract token from "Bearer <token>" format
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+
+        token = auth_header.split(' ')[1]
 
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -948,9 +887,15 @@ def breakup(request):
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
     
     try:
-        token = request.COOKIES.get('loveconnect')
-        if not token:
-            return JsonResponse({'error': 'Missing token'}, status=401)
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Missing Authorization header'}, status=401)
+
+        # Extract token from "Bearer <token>" format
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+
+        token = auth_header.split(' ')[1]
         
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_email = payload.get('email')

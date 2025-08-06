@@ -25,16 +25,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user_email = None
 
         # Step 1: Extract the 'cookie' header
-        headers = dict((k.decode(), v.decode()) for k, v in self.scope["headers"])
-        cookie_header = headers.get("cookie", "")
+        query_string = self.scope['query_string'].decode()
+        token = parse_qs(query_string).get('token', [None])[0]
 
-        # Step 2: Use regex or split to extract 'loveconnect' token
-        token_match = re.search(r"loveconnect[:=]([^\s;]+)", cookie_header)
-        if not token_match:
-            await self.close()
-            return
+        # headers = {}
+        # for header in self.scope.get("headers", []):
+        #     try:
+        #         k, v = header
+        #         headers[k.decode("utf-8")] = v.decode("utf-8")
+        #     except Exception as e:
+        #         print(f"Skipping malformed header: {header} -- {e}")
+        # print("Incoming WebSocket headers:", headers)
 
-        token = token_match.group(1)
+
+
+        # cookie_header = headers.get("cookie", "")
+
+        # # Step 2: Use regex or split to extract 'loveconnect' token
+        # token_match = re.search(r"loveconnect[:=]([^\s;]+)", cookie_header)
+        # if not token_match:
+        #     await self.close()
+        #     return
+
+        # token = token_match.group(1)
 
         # Step 3: Decode JWT
         try:
@@ -120,10 +133,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"Error sending previous messages: {e}")
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+        if hasattr(self, "room_group_name"):
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
 
     async def receive(self, text_data):
         data = json.loads(text_data)

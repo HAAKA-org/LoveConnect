@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+import urllib.parse as urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-(%h^3rhkht08&^^37_zt4mz3u)!m0mas+$3l2l%!dr&qa708(^'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -88,21 +90,23 @@ DATABASES = {
     }
 }
 
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             "hosts": [('127.0.0.1', 6379)],
-#         },
-#     },
-# }
-
+REDIS_URL = os.getenv('REDIS_URL')
 
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    }
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": ["rediss://default:AS00AAIjcDEyMTAzMzVjMmVmNDI0NDJiYTA5NTEwOTQ0YTI2YTVjNHAxMA@polished-coral-11572.upstash.io:6379"],
+        },
+    },
 }
+
+
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer',
+#     }
+# }
 
 
 
@@ -148,12 +152,41 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_CREDENTIALS = True
-
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5174", "http://localhost:5173"  # match frontend
+    "http://localhost:5174", 
+    "http://localhost:5173", 
+    "https://loveconnect-gilt.vercel.app", 
+    "https://loveconnect.haaka.online" 
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174", "http://localhost:5173"# or your frontend URL
+    "http://localhost:5174", 
+    "http://localhost:5173", 
+    "https://loveconnect-gilt.vercel.app", 
+    "https://loveconnect.haaka.online"
+]
+
+# Additional CORS settings to fix login issues
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
