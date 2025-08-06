@@ -12,12 +12,12 @@ const NotFound: React.FC = () => {
       <div className="text-center p-4 w-full max-w-md mx-auto">
         {/* 404 Animation */}
         <div className="mb-6 relative">
-          <h1 className={`text-7xl sm:text-9xl font-bold ${isDarkMode ? 'text-gray-700' : 'text-pink-200'} select-none`}>
-            404
+          <h1 className={`text-7xl sm:text-9xl space-x-14 font-bold ${isDarkMode ? 'text-gray-700' : 'text-pink-300'} select-none`}>
+            <span>4</span><span>4</span>
           </h1>
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center mt-3">
             <div className="bg-pink-600 p-3 sm:p-4 rounded-full animate-pulse">
-              <Heart className="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="white" />
+              <Heart className="w-5 h-5 sm:w-8 sm:h-8 text-white" fill="white" />
             </div>
           </div>
         </div>
