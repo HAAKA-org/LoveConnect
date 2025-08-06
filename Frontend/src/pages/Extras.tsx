@@ -34,7 +34,7 @@ const Extras: React.FC = () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    fetch('https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/', {
+    fetch('http://localhost:8000/loveconnect/api/extras/', {
       headers: {
         Authorization: `Bearer ${token}`
       },
@@ -61,7 +61,7 @@ const handleAddLoveNote = async () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    const res = await fetch('https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/lovejar/add/', {
+    const res = await fetch('http://localhost:8000/loveconnect/api/extras/lovejar/add/', {
       method: 'POST',
       credentials: 'include',
       headers: { 
@@ -84,7 +84,7 @@ const handleAddLoveNote = async () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    await fetch(`https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/lovejar/reveal/${id}/`, {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/lovejar/reveal/${id}/`, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`
@@ -107,7 +107,7 @@ const handleAddLoveNote = async () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    const res = await fetch('https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/todo/add/', {
+    const res = await fetch('http://localhost:8000/loveconnect/api/extras/todo/add/', {
       method: 'POST',
       credentials: 'include',
       headers: { 
@@ -129,7 +129,7 @@ const handleAddLoveNote = async () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    await fetch(`https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/todo/toggle/${id}/`, {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/todo/toggle/${id}/`, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`
@@ -150,7 +150,7 @@ const handleAddLoveNote = async () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    await fetch(`https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/todo/delete/${id}/`, {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/todo/delete/${id}/`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`
@@ -167,7 +167,7 @@ const handleAddLoveNote = async () => {
       .find(row => row.startsWith('loveconnect='))
       ?.split('=')[1];
 
-    await fetch(`https://loveconnect-backend-kvb9.onrender.com/loveconnect/api/extras/lovejar/delete/${id}/`, {
+    await fetch(`http://localhost:8000/loveconnect/api/extras/lovejar/delete/${id}/`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`
