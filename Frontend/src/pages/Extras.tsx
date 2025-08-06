@@ -115,7 +115,7 @@ const Extras: React.FC = () => {
   const tabs = [
     { id: 'love-jar', label: 'Love Jar', icon: Heart },
     { id: 'todo', label: 'To-Do List', icon: BookOpen },
-    { id: 'games', label: 'Games', icon: GamePad2 }
+    // { id: 'games', label: 'Games', icon: GamePad2 }
   ];
 
   return (
