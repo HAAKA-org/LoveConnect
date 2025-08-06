@@ -5,8 +5,13 @@ from pymongo import MongoClient
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
-client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
+# Load environment variables
+load_dotenv()
+
+client = MongoClient(os.getenv('MONGODB_URI'))
 db = client['LoveConnect']
 reminders_collection = db['reminders']
 

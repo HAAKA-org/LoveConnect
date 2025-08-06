@@ -8,9 +8,14 @@ import json
 import random
 import string
 from bson import ObjectId
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # MongoDB Connection
-client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
+client = MongoClient(os.getenv('MONGODB_URI'))
 db = client['LoveConnect']
 users_collection = db['users']
 notes_collection = db['notes']

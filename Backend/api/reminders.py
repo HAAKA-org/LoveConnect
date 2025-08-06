@@ -5,9 +5,14 @@ from django.views.decorators.csrf import csrf_exempt
 from pymongo import MongoClient
 import json
 from bson import ObjectId
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # MongoDB connection
-client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
+client = MongoClient(os.getenv('MONGODB_URI'))
 db = client['LoveConnect']
 users_collection = db['users']
 reminders_collection = db['reminders']

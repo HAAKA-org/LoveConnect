@@ -13,9 +13,13 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # MongoDB Connection
-client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
+client = MongoClient(os.getenv('MONGODB_URI'))
 db = client['LoveConnect']
 users_collection = db['users']
 

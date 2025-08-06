@@ -12,12 +12,13 @@ import re
 from bson import ObjectId
 import json
 
+# Load environment variables
+load_dotenv()
+
 # MongoDB Connection
-client = MongoClient("mongodb+srv://ihub:akash@ihub.fel24ru.mongodb.net/")
+client = MongoClient(os.getenv('MONGODB_URI'))
 db = client['LoveConnect']
 users_collection = db['users']
-
-load_dotenv()
 
 def upload_to_r2(file):
     import re
