@@ -6,6 +6,7 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Pairing from './pages/Pairing';
+import ProfileCompletion from './pages/ProfileCompletion';
 import DashboardLayout from './layouts/DashboardLayout';
 import Chat from './pages/Chat';
 import Gallery from './pages/Gallery';
@@ -57,6 +58,7 @@ const AppContent: React.FC = () => {
           <Route path="/pairing" element={
             isAuthenticated && user?.isPaired ? <Navigate to="/dashboard/chat" replace /> : <Pairing />
           } />
+          <Route path="/profile-completion" element={<ProfileCompletion />} />
           <Route path="/forgot-pin" element={<ForgotPin />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>

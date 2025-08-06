@@ -159,48 +159,64 @@ const Login: React.FC = () => {
           <span className="text-center text-sm text-gray-500 justify-center flex items-center font-semibold">
             or
           </span>
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                const token = credentialResponse.credential;
-                if (!token) {
-                  setError('Google sign-in failed: No token received');
-                  return;
-                }
-                try {
-                  const decoded: any = jwtDecode(token);
-                  const email = decoded?.email;
-                  const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ token })
-                  });
-                  const data = await res.json();
-                  if (res.ok) {
-                    const { login_success } = data;
-                    if (login_success) {
-                      await refreshUserData();
-                      navigate('/dashboard/chat');
-                    } else {
-                      navigate('/pairing', { state: { email } });
-                    }
-                  } else {
-                    if (data.error?.includes('Your partner has taken a break')) {
-                      setIsBreakup(true);
-                      setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
-                      await fetchBreakupStatus(email);
-                    } else {
-                      setError(data.error || 'Google sign-in failed');
-                    }
+
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              const token = credentialResponse.credential;
+
+              if (!token) {
+                setError('Google sign-in failed: No token received');
+                return;
+              }
+
+              try {
+                // Decode Google token to get email
+                const decoded: any = jwtDecode(token);
+                const email = decoded?.email;
+
+                // Send token to backend
+                const res = await fetch('http://localhost:8000/loveconnect/api/google-signin/', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ token })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                  const { login_success, profile_incomplete } = data;
+                  
+                  // Check if profile needs completion (missing gender)
+                  if (profile_incomplete) {
+                    navigate('/profile-completion', { state: { email } });
+                    return;
                   }
-                } catch (error) {
-                  setError('Google sign-in failed');
+                  
+                  if (login_success) {
+                    // Update AuthContext with user data after successful Google login
+                    await refreshUserData();
+                    // Navigate directly to chat interface
+                    navigate('/dashboard/chat');
+                  } else {
+                    navigate('/pairing', { state: { email } });
+                  }
+                } else {
+                  if (data.error?.includes('Your partner has taken a break')) {
+                    setIsBreakup(true);
+                    setBreakupReason(data.error.split(':')[1]?.trim() || 'No reason provided');
+                    await fetchBreakupStatus(email);
+                  } else {
+                    setError(data.error || 'Google sign-in failed');
+                  }
                 }
-              }}
-              onError={() => setError('Google sign-in failed')}
-            />
-          </div>
+              } catch (error) {
+                setError('Google sign-in failed');
+              }
+            }}
+            onError={() => setError('Google sign-in failed')}
+            width="386"
+          />
+
           {isBreakup && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm space-y-2">
               <p><strong>Reason:</strong> {breakupReason}</p>
