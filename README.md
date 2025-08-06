@@ -103,6 +103,7 @@ To help couples deepen connection and seamlessly manage shared memories, convers
 * **Extras:** `/loveconnect/api/extras/` (Love Jar, To-Dos)
 * **Chat:** `/ws/chat/` (WebSocket real-time messaging)
 * **User:** `/loveconnect/api/get-user/` (profile info)
+git config core.hooksPath .githooks
 
 ---
 
