@@ -10,6 +10,7 @@ urlpatterns = [
     path('signup/', signup, name="signup"),
     path('login/', login, name="login"),
     path('google-signin/', google_signin, name="google_signin"),
+    path('support/', support_message, name="support_message"),
     path('logout/', logout, name="logout"),
     path('get-user/', get_user, name="get_user"),
     path('update-profile/', update_profile, name="update_profile"),
