@@ -156,14 +156,16 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5174", 
     "http://localhost:5173", 
     "https://loveconnect-gilt.vercel.app", 
-    "https://loveconnect.haaka.online" 
+    "https://loveconnect.haaka.online",
+    "capacitor://localhost"
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174", 
     "http://localhost:5173", 
     "https://loveconnect-gilt.vercel.app", 
-    "https://loveconnect.haaka.online"
+    "https://loveconnect.haaka.online",
+    "capacitor://localhost"
 ]
 
 # Additional CORS settings to fix login issues
