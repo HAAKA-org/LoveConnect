@@ -262,7 +262,7 @@ def google_signin(request):
             user = users_collection.find_one({'email': email})
 
             if not user:
-                # Auto-signup for first-time Google user
+                # Auto-signup for first-time Google user (without gender initially)
                 user_doc = {
                     'name': name,
                     'email': email,
@@ -273,6 +273,34 @@ def google_signin(request):
                 users_collection.insert_one(user_doc)
                 # Fetch the user again to get the _id
                 user = users_collection.find_one({'email': email})
+
+            # Create JWT token first (needed for profile completion)
+            payload = {
+                '_id': str(user['_id']),
+                'email': user['email'],
+                'name': user['name'],
+                'partnerCode': user.get('partnerCode'),
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
+            }
+            jwt_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+            # ✅ Check if user needs to complete profile (gender selection)
+            if not user.get('gender'):
+                response = JsonResponse({
+                    'message': 'Profile completion required',
+                    'profile_incomplete': True,
+                    'missing_fields': ['gender'],
+                    'token': jwt_token,  # return token since cookie is disabled
+                }, status=200)
+                # response.set_cookie(
+                #     key='loveconnect',
+                #     value=jwt_token,
+                #     httponly=True,
+                #     samesite='Lax',
+                #     max_age=30*24*60*60,  # 30 days in seconds
+                #     secure=False  # Set to True in production with HTTPS
+                # )
+                return response
 
             # ✅ Check if paired and not in breakup
             is_paired = user.get('isPaired', False)
@@ -285,27 +313,19 @@ def google_signin(request):
                     'error': f"Your partner has taken a break 💔: {reason}"
                 }, status=403)
 
-            # Create JWT token
-            payload = {
-                '_id': str(user['_id']),
-                'email': user['email'],
-                'name': user['name'],
-                'partnerCode': user.get('partnerCode'),
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)
-            }
-            jwt_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
+            # Success response
             response = JsonResponse({
                 'message': 'Google login successful',
-                'login_success': is_paired,
-                'token': jwt_token,
+                'login_success': is_paired,  # ✅ return this flag
+                'token': jwt_token,          # return token since cookie is disabled
             })
             # response.set_cookie(
             #     key='loveconnect',
             #     value=jwt_token,
             #     httponly=True,
             #     samesite='Lax',
-            #     max_age=86400
+            #     max_age=30*24*60*60,  # 30 days in seconds
+            #     secure=False  # Set to True in production with HTTPS
             # )
             return response
 
