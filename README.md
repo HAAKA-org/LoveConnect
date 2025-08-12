@@ -1,29 +1,29 @@
-# 💞 LoveConnect
+# LoveConnect
 
 LoveConnect is a **private relationship companion platform** for couples, blending real-time chat, shared notes, collaborative to-dos, reminders, and a unique gallery of memories. Designed with privacy at its core, it leverages modern tech to help couples connect, communicate, and cherish special moments together.
 
 ---
 
-## 🌟 Project Highlights
+## Project Highlights
 
-* 💬 Secure, real-time chat powered by WebSockets (Django ASGI + Daphne)
-* 📝 Shared note-taking with favorites, colors, and edit history
-* 📸 Collaborative gallery for uploading, liking, and captioning photos
-* ⏰ Smart reminders with priority, recurrence, and notifications
-* 🍬 “Love Jar” for surprise notes and to-do lists for shared goals
-* 🔑 Privacy-first: All data scoped to a unique couple code
-* 🛡 Authentication via JWT tokens across API and chat
-* 🎨 Modern React TypeScript front-end with dark mode
+* Secure, real-time chat powered by WebSockets (Django ASGI + Daphne)
+* Shared note-taking with favorites, colors, and edit history
+* Collaborative gallery for uploading, liking, and captioning photos
+* Smart reminders with priority, recurrence, and notifications
+* “Love Jar” for surprise notes and to-do lists for shared goals
+* Privacy-first: All data scoped to a unique couple code
+* Authentication via JWT tokens across API and chat
+* Modern React TypeScript front-end with dark mode
 
 ---
 
-## 🎯 Objective
+## Objective
 
 To help couples deepen connection and seamlessly manage shared memories, conversations, and tasks in a secure, joyful digital space.
 
 ---
 
-## ⚙️ Core Features
+## Core Features
 
 ### 1. Real-Time Chat
 
@@ -58,7 +58,7 @@ To help couples deepen connection and seamlessly manage shared memories, convers
 
 ---
 
-## 🧰 Tech Stack
+## Tech Stack
 
 | Layer         | Tools Used                     |
 | ------------- | ------------------------------ |
@@ -72,7 +72,7 @@ To help couples deepen connection and seamlessly manage shared memories, convers
 
 ---
 
-## 🔁 Workflow
+## Workflow
 
 ### Step 1: Onboarding
 
@@ -95,7 +95,7 @@ To help couples deepen connection and seamlessly manage shared memories, convers
 
 ---
 
-## 🔗 API & WebSocket Endpoints
+## API & WebSocket Endpoints
 
 * **Notes:** `/loveconnect/api/notes/` (CRUD, favorite)
 * **Gallery:** `/loveconnect/api/gallery/` (CRUD, like, caption)
@@ -107,7 +107,7 @@ git config core.hooksPath .githooks
 
 ---
 
-## 🛡️ Security
+## Security
 
 * All endpoints and chat require JWT authentication.
 * Data and channels are strictly scoped to couple’s partner code.
@@ -115,28 +115,28 @@ git config core.hooksPath .githooks
 
 ---
 
-## ✨ Domain
+## Domain
 
-🎯 **Live Demo:** _(update with URL)_
+**Live Demo:** _(www.loveconnect.haaka.online)_
 
 ---
 
-## 🙌 Team & Credits
+## Team & Credits
 
 Team: HAAKA-org core contributors  
 Special thanks to Django ASGI, Daphne, MongoDB, Cloudflare R2, and React community.
 
 ---
 
-## 🚀 Submission Plan
+## Submission Plan
 
-* ✅ **Demo video**: Covers onboarding, chat, notes, gallery, reminders
-* ✅ **Live site**: Hosted (_update URL_)
-* ✅ **Docs**: API, WebSocket, and system architecture
+* **Demo video**: Covers onboarding, chat, notes, gallery, reminders
+* **Live site**: Hosted (_update URL_)
+* **Docs**: API, WebSocket, and system architecture
 
 ---
 
-## 🏆 Bonus Integrations
+## Bonus Integrations
 
 | Sponsor        | Usage                        |
 | -------------- | --------------------------- |
@@ -147,12 +147,12 @@ Special thanks to Django ASGI, Daphne, MongoDB, Cloudflare R2, and React communi
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 * Fork, branch, and PR with code linting and tests.
 
 ---
 
-## 📞 Contact
+## Contact
 
 For questions, reach out on [HAAKA-org GitHub](https://github.com/HAAKA-org).
