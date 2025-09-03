@@ -117,7 +117,7 @@ git config core.hooksPath .githooks
 
 ## Domain
 
-**Live Demo:** _(www.loveconnect.haaka.online)_
+**Live Demo:** _(https://loveconnect.haaka.online/)_
 
 ---
 
